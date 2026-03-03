@@ -2,657 +2,1342 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#080808">
 <title>Gridlock</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.js"></script>
 <style>
-  :root {
-    --mint: #3DFFA0;
-    --black: #080808;
-    --dark: #111;
-    --card: #1a1a1a;
-    --border: #2a2a2a;
-    --text: #aaa;
-    --white: #f0f0f0;
-  }
+/* ── RESET & ROOT ── */
+:root {
+  --mint: #3DFFA0;
+  --black: #080808;
+  --dark: #111;
+  --card: #161616;
+  --border: #252525;
+  --text: #888;
+  --white: #f2f2f2;
+  --red: #FF6B6B;
+  --orange: #FF9F43;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --nav-h: 64px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: var(--black); color: var(--white); font-family: 'DM Sans', sans-serif; }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+/* ── VIEWS ── */
+/* Lobby/Start schermen scrollen normaal */
+.view { display: none; position: fixed; inset: 0; overflow-y: auto; background: var(--black); z-index: 1; }
+.view.active { display: block; }
 
-  body {
-    background: var(--black);
-    color: var(--white);
-    font-family: 'DM Sans', sans-serif;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 1.5rem;
-  }
+/* Game scherm: kaart + overlay nav */
+#view-game { display: none; position: fixed; inset: 0; overflow: hidden; z-index: 1; }
+#view-game.active { display: block; }
 
-  .logo {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 3rem;
-    color: var(--mint);
-    letter-spacing: 0.05em;
-    text-align: center;
-    line-height: 1;
-  }
-  .logo-sub {
-    font-family: 'Space Mono', monospace;
-    font-size: 0.55rem;
-    letter-spacing: 0.35em;
-    color: rgba(61,255,160,0.5);
-    text-transform: uppercase;
-    text-align: center;
-    margin-bottom: 2.5rem;
-  }
+/* End scherm */
+#view-end { display: none; position: fixed; inset: 0; overflow-y: auto; background: var(--black); z-index: 1; padding-bottom: calc(2rem + var(--safe-bottom)); }
+#view-end.active { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100%; padding: 2rem 1.5rem; }
 
-  .screen { width: 100%; max-width: 380px; display: none; }
-  .screen.active { display: flex; flex-direction: column; gap: 1rem; }
+/* ── LOBBY LAYOUT ── */
+.lobby-wrap { max-width: 420px; margin: 0 auto; padding: 0 1.25rem 3rem; }
+.lobby-header { display: flex; flex-direction: column; align-items: center; padding: 2.5rem 0 1.5rem; }
+.gl-logo { font-family: 'Bebas Neue', sans-serif; font-size: 3.2rem; color: var(--mint); letter-spacing: .04em; line-height: 1; }
+.gl-sub  { font-family: 'Space Mono', monospace; font-size: .5rem; letter-spacing: .3em; color: rgba(61,255,160,.45); text-transform: uppercase; margin-top: .2rem; }
 
-  .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    padding: 1.5rem;
-    border-radius: 2px;
-  }
+/* ── KAARTEN / INPUTS ── */
+.card { background: var(--card); border: 1px solid var(--border); padding: 1.25rem; margin-bottom: .75rem; border-radius: 2px; }
+.card-label { font-family: 'Space Mono', monospace; font-size: .55rem; letter-spacing: .2em; text-transform: uppercase; color: var(--mint); margin-bottom: .9rem; }
+.gl-input { width: 100%; background: var(--black); border: 1px solid var(--border); color: var(--white); padding: .85rem 1rem; font-family: 'Space Mono', monospace; font-size: .9rem; outline: none; border-radius: 2px; margin-bottom: .6rem; -webkit-appearance: none; }
+.gl-input:focus { border-color: var(--mint); }
+.gl-input::placeholder { color: #3a3a3a; }
 
-  .card-title {
-    font-family: 'Space Mono', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--mint);
-    margin-bottom: 1rem;
-  }
+/* ── KNOPPEN ── */
+.btn { display: block; width: 100%; padding: 1rem; font-family: 'Space Mono', monospace; font-size: .75rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; border: none; cursor: pointer; border-radius: 2px; text-align: center; transition: opacity .15s, transform .1s; }
+.btn:active { transform: scale(.98); opacity: .85; }
+.btn-mint   { background: var(--mint); color: var(--black); }
+.btn-mint:disabled { opacity: .35; pointer-events: none; }
+.btn-ghost  { background: transparent; color: var(--white); border: 1px solid var(--border); margin-top: .5rem; }
+.btn-danger { background: transparent; color: var(--red); border: 1px solid rgba(255,107,107,.25); margin-top: .5rem; }
+.btn-orange { background: transparent; color: var(--orange); border: 1px solid rgba(255,159,67,.3); }
 
-  input {
-    width: 100%;
-    background: var(--black);
-    border: 1px solid var(--border);
-    color: var(--white);
-    padding: 0.85rem 1rem;
-    font-family: 'Space Mono', monospace;
-    font-size: 0.9rem;
-    letter-spacing: 0.05em;
-    outline: none;
-    transition: border-color 0.2s;
-    border-radius: 2px;
-    margin-bottom: 0.75rem;
-  }
-  input:focus { border-color: var(--mint); }
-  input::placeholder { color: #444; }
+/* ── FOUT MELDING ── */
+.error-msg { font-family: 'Space Mono', monospace; font-size: .65rem; color: var(--red); text-align: center; padding: .5rem 0; min-height: 1.5rem; }
 
-  button {
-    width: 100%;
-    padding: 0.9rem;
-    font-family: 'Space Mono', monospace;
-    font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    border: none;
-    cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
-    border-radius: 2px;
-  }
-  button:active { transform: scale(0.98); }
+/* ── DIVIDER ── */
+.divider { display: flex; align-items: center; gap: .75rem; font-family: 'Space Mono', monospace; font-size: .55rem; color: #333; letter-spacing: .1em; margin: .25rem 0 .75rem; }
+.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-  .btn-primary {
-    background: var(--mint);
-    color: var(--black);
-  }
-  .btn-primary:hover { box-shadow: 0 4px 20px rgba(61,255,160,0.3); }
+/* ── GAMECODE ── */
+.code-box { text-align: center; padding: 1.25rem; border: 1px solid var(--border); background: var(--black); margin-bottom: .75rem; }
+.code-lbl  { font-family: 'Space Mono', monospace; font-size: .5rem; letter-spacing: .2em; color: var(--text); text-transform: uppercase; margin-bottom: .35rem; }
+.code-val  { font-family: 'Bebas Neue', sans-serif; font-size: 3.2rem; color: var(--mint); letter-spacing: .2em; line-height: 1; }
+.code-hint { font-size: .72rem; color: var(--text); font-weight: 300; margin-top: .3rem; }
 
-  .btn-ghost {
-    background: transparent;
-    color: var(--white);
-    border: 1px solid var(--border);
-  }
-  .btn-ghost:hover { border-color: var(--mint); color: var(--mint); }
+/* ── TEAMS LIJST ── */
+.team-list { display: flex; flex-direction: column; gap: .4rem; min-height: 48px; margin-bottom: .75rem; }
+.team-row  { display: flex; align-items: center; gap: .75rem; padding: .7rem 1rem; background: var(--black); border: 1px solid var(--border); }
+.team-dot  { width: 8px; height: 8px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 6px var(--mint); flex-shrink: 0; }
+.team-name { font-family: 'Space Mono', monospace; font-size: .78rem; flex: 1; }
+.team-badge { font-family: 'Space Mono', monospace; font-size: .48rem; letter-spacing: .1em; padding: 2px 6px; text-transform: uppercase; }
+.team-badge.host   { background: rgba(61,255,160,.1); color: var(--mint); }
+.team-badge.joined { background: rgba(255,255,255,.04); color: var(--text); }
+.teams-count { font-family: 'Space Mono', monospace; font-size: .58rem; color: var(--text); margin-bottom: .5rem; }
+.teams-count b { color: var(--mint); }
+.waiting { font-family: 'Space Mono', monospace; font-size: .55rem; color: #333; text-align: center; padding: .4rem 0; }
+.waiting::after { content: ''; animation: dots 1.5s steps(4,end) infinite; }
+@keyframes dots { 0%,100%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
 
-  .btn-danger {
-    background: transparent;
-    color: #ff6b6b;
-    border: 1px solid #ff6b6b33;
-    margin-top: 0.5rem;
-  }
+/* ══════════════════════════════════════════
+   GAME SCREEN
+══════════════════════════════════════════ */
 
-  .divider {
-    display: flex; align-items: center; gap: 1rem;
-    font-family: 'Space Mono', monospace;
-    font-size: 0.6rem; color: #444;
-    letter-spacing: 0.1em;
-    margin: 0.25rem 0;
-  }
-  .divider::before, .divider::after {
-    content: ''; flex: 1; height: 1px; background: var(--border);
-  }
+/* Kaart — vult het hele scherm */
+#map {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  width: 100vw;
+  height: 100vh;
+}
 
-  /* LOBBY */
-  .game-code-display {
-    text-align: center;
-    padding: 1.5rem;
-    border: 1px solid var(--border);
-    background: var(--black);
-    margin-bottom: 1rem;
-  }
-  .game-code-label {
-    font-family: 'Space Mono', monospace;
-    font-size: 0.6rem; letter-spacing: 0.2em;
-    color: var(--text); text-transform: uppercase;
-    margin-bottom: 0.5rem;
-  }
-  .game-code {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 3.5rem; color: var(--mint);
-    letter-spacing: 0.15em; line-height: 1;
-  }
-  .game-code-hint {
-    font-size: 0.75rem; color: var(--text);
-    margin-top: 0.5rem; font-weight: 300;
-  }
+/* Top bar — zweeft boven de kaart */
+.game-topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .7rem 1rem;
+  padding-top: calc(.7rem + env(safe-area-inset-top, 0px));
+  background: rgba(8,8,8,.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.topbar-logo { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; color: var(--mint); letter-spacing: .04em; }
+.topbar-live { display: flex; align-items: center; gap: 5px; font-family: 'Space Mono', monospace; font-size: .55rem; color: var(--mint); }
+.live-dot    { width: 6px; height: 6px; border-radius: 50%; background: var(--mint); animation: liveBlink 1.2s ease-in-out infinite; }
+@keyframes liveBlink { 0%,100%{opacity:1} 50%{opacity:.15} }
+.topbar-timer { font-family: 'Space Mono', monospace; font-size: .85rem; color: var(--white); min-width: 48px; text-align: right; }
 
-  .teams-list {
-    display: flex; flex-direction: column; gap: 0.5rem;
-    margin-bottom: 1rem;
-    min-height: 80px;
-  }
-  .team-item {
-    display: flex; align-items: center; gap: 0.75rem;
-    padding: 0.75rem 1rem;
-    background: var(--black);
-    border: 1px solid var(--border);
-    animation: slideIn 0.3s ease forwards;
-  }
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateX(-10px); }
-    to { opacity: 1; transform: translateX(0); }
-  }
-  .team-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--mint);
-    box-shadow: 0 0 8px var(--mint);
-    flex-shrink: 0;
-  }
-  .team-dot.waiting { background: #444; box-shadow: none; }
-  .team-name {
-    font-family: 'Space Mono', monospace;
-    font-size: 0.8rem; color: var(--white);
-    flex: 1;
-  }
-  .team-badge {
-    font-family: 'Space Mono', monospace;
-    font-size: 0.55rem; letter-spacing: 0.1em;
-    padding: 2px 8px; text-transform: uppercase;
-  }
-  .team-badge.host {
-    background: rgba(61,255,160,0.15);
-    color: var(--mint);
-  }
-  .team-badge.joined {
-    background: rgba(255,255,255,0.05);
-    color: var(--text);
-  }
+/* Out-of-bounds waarschuwing */
+.oob {
+  position: fixed;
+  top: 52px; left: 0; right: 0;
+  z-index: 19;
+  background: rgba(255,107,107,.9);
+  color: #fff;
+  font-family: 'Space Mono', monospace;
+  font-size: .6rem;
+  text-align: center;
+  padding: .5rem 1rem;
+  letter-spacing: .06em;
+  display: none;
+  backdrop-filter: blur(8px);
+}
+.oob.show { display: block; }
 
-  .waiting-indicator {
-    text-align: center;
-    font-family: 'Space Mono', monospace;
-    font-size: 0.65rem; color: #444;
-    letter-spacing: 0.1em; padding: 1rem 0;
-  }
-  .waiting-dots::after {
-    content: '';
-    animation: dots 1.5s steps(4, end) infinite;
-  }
-  @keyframes dots {
-    0%,100% { content: ''; }
-    25% { content: '.'; }
-    50% { content: '..'; }
-    75% { content: '...'; }
-  }
+/* Bonus toast */
+.bonus-toast {
+  position: fixed;
+  top: 58px; left: 50%; transform: translateX(-50%);
+  z-index: 25;
+  background: var(--orange);
+  color: #000;
+  font-family: 'Space Mono', monospace;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: .55rem 1.1rem;
+  white-space: nowrap;
+  display: none;
+  border-radius: 2px;
+  box-shadow: 0 4px 20px rgba(255,159,67,.4);
+}
+.bonus-toast.show { display: block; animation: toastPop .3s ease; }
+@keyframes toastPop { from{opacity:0;transform:translateX(-50%) scale(.9)} to{opacity:1;transform:translateX(-50%) scale(1)} }
 
-  .teams-count {
-    font-family: 'Space Mono', monospace;
-    font-size: 0.6rem; color: var(--text);
-    letter-spacing: 0.1em; text-align: center;
-    margin-bottom: 0.75rem;
-  }
-  .teams-count span { color: var(--mint); }
+/* Score pill — boven de bottom nav, zweeft op kaart */
+.score-pill {
+  position: fixed;
+  left: 1rem; right: 1rem;
+  bottom: calc(var(--nav-h) + var(--safe-bottom) + .75rem);
+  z-index: 18;
+  background: rgba(8,8,8,.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  padding: .6rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.pill-rank { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; color: var(--mint); width: 20px; }
+.pill-name { font-family: 'Space Mono', monospace; font-size: .65rem; flex: 1; margin: 0 .75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pill-pts  { font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; color: var(--mint); }
 
-  /* IN GAME */
-  .game-header {
-    text-align: center; margin-bottom: 0.5rem;
-  }
-  .game-title {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 2rem; color: var(--white);
-    letter-spacing: 0.05em;
-  }
-  .game-subtitle {
-    font-size: 0.85rem; color: var(--text); font-weight: 300;
-  }
+/* ── BOTTOM NAV ── */
+.bottom-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 20;
+  display: flex;
+  background: rgba(8,8,8,.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border);
+  padding-bottom: var(--safe-bottom);
+  height: calc(var(--nav-h) + var(--safe-bottom));
+}
+.nav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  transition: color .15s;
+  min-height: 48px;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-btn.active { color: var(--mint); }
+.nav-icon { font-size: 1.3rem; line-height: 1; }
+.nav-label { font-family: 'Space Mono', monospace; font-size: .45rem; letter-spacing: .08em; text-transform: uppercase; }
+/* Actieve indicator boven nav-knop */
+.nav-btn.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 32px; height: 2px;
+  background: var(--mint);
+  border-radius: 0 0 2px 2px;
+}
+.nav-btn { position: relative; }
 
-  .scoreboard {
-    display: flex; flex-direction: column; gap: 0.4rem;
-  }
-  .score-row {
-    display: flex; align-items: center; gap: 0.75rem;
-    padding: 0.75rem 1rem;
-    background: var(--black);
-    border: 1px solid var(--border);
-    transition: border-color 0.3s;
-  }
-  .score-row.me { border-color: rgba(61,255,160,0.3); }
-  .score-rank {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 1.2rem; color: var(--text); width: 24px;
-  }
-  .score-rank.first { color: var(--mint); }
-  .score-name {
-    font-family: 'Space Mono', monospace;
-    font-size: 0.75rem; flex: 1;
-  }
-  .score-me-tag {
-    font-size: 0.55rem; color: var(--mint);
-    font-family: 'Space Mono', monospace;
-    letter-spacing: 0.1em;
-  }
-  .score-pts {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 1.4rem; color: var(--mint);
-  }
+/* ══ PANELS (schuiven over kaart) ══ */
+.panel {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: var(--black);
+  display: flex;
+  flex-direction: column;
+  transform: translateY(100%);
+  transition: transform .28s cubic-bezier(.4,0,.2,1);
+  will-change: transform;
+}
+.panel.open { transform: translateY(0); }
 
-  .status-bar {
-    display: flex; justify-content: space-between;
-    padding: 0.75rem 1rem;
-    background: rgba(61,255,160,0.05);
-    border: 1px solid rgba(61,255,160,0.15);
-    font-family: 'Space Mono', monospace;
-    font-size: 0.65rem; color: var(--mint);
-    letter-spacing: 0.08em;
-  }
+.panel-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .9rem 1.25rem;
+  padding-top: calc(.9rem + env(safe-area-inset-top, 0px));
+  border-bottom: 1px solid var(--border);
+  background: rgba(8,8,8,.97);
+  flex-shrink: 0;
+}
+.panel-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; color: var(--mint); letter-spacing: .04em; }
+.panel-back  { font-family: 'Space Mono', monospace; font-size: .6rem; color: var(--text); background: transparent; border: 1px solid var(--border); padding: .45rem .9rem; cursor: pointer; border-radius: 2px; width: auto; }
+.panel-back:active { opacity: .7; }
+.panel-body  { flex: 1; overflow-y: auto; padding: .9rem 1.25rem; padding-bottom: calc(1.5rem + var(--safe-bottom)); -webkit-overflow-scrolling: touch; }
 
-  .error-msg {
-    font-family: 'Space Mono', monospace;
-    font-size: 0.7rem; color: #ff6b6b;
-    text-align: center; padding: 0.5rem;
-    display: none;
-  }
-  .error-msg.show { display: block; }
+/* ── SCOREBORD ── */
+.score-row { display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem; background: var(--card); border: 1px solid var(--border); margin-bottom: .4rem; border-radius: 2px; }
+.score-row.me { border-color: rgba(61,255,160,.3); background: rgba(61,255,160,.03); }
+.s-rank { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; color: var(--text); width: 24px; }
+.s-rank.gold { color: var(--mint); }
+.s-name { font-family: 'Space Mono', monospace; font-size: .72rem; flex: 1; }
+.s-me   { font-size: .5rem; color: var(--mint); margin-left: .4rem; }
+.s-pts  { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; color: var(--mint); }
 
-  /* Loading */
-  .loading {
-    text-align: center;
-    font-family: 'Space Mono', monospace;
-    font-size: 0.7rem; color: var(--mint);
-    letter-spacing: 0.15em;
-    animation: pulse 1.5s ease-in-out infinite;
-  }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+/* ── OPDRACHTLIJST ── */
+.mission-item {
+  display: flex; align-items: center; gap: .85rem;
+  padding: .85rem 1rem;
+  background: var(--card); border: 1px solid var(--border);
+  margin-bottom: .4rem; border-radius: 2px;
+  cursor: pointer; transition: border-color .15s;
+  min-height: 64px; /* min tap target */
+}
+.mission-item.nearby  { border-color: var(--mint); background: rgba(61,255,160,.03); }
+.mission-item.done    { opacity: .4; cursor: default; }
+.mission-item.failed  { opacity: .35; cursor: default; border-color: rgba(255,107,107,.2); }
+.mission-item.locked  { opacity: .45; cursor: default; }
+.mission-item.bonus   { border-color: rgba(255,159,67,.4); background: rgba(255,159,67,.03); }
+.m-icon  { font-size: 1.5rem; flex-shrink: 0; width: 32px; text-align: center; }
+.m-info  { flex: 1; min-width: 0; }
+.m-name  { font-family: 'Space Mono', monospace; font-size: .7rem; color: var(--white); margin-bottom: .25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-dist  { font-size: .72rem; color: var(--text); font-weight: 300; }
+.m-dist.close { color: var(--mint); font-weight: 400; }
+.m-pts   { font-family: 'Space Mono', monospace; font-size: .6rem; color: var(--mint); background: rgba(61,255,160,.1); padding: 3px 8px; flex-shrink: 0; border-radius: 2px; white-space: nowrap; }
+.m-pts.bonus-pts  { color: var(--orange); background: rgba(255,159,67,.12); }
+.m-pts.failed-pts { color: var(--red); background: rgba(255,107,107,.1); }
+.unlock-bar { height: 2px; background: var(--border); margin-top: .35rem; border-radius: 1px; overflow: hidden; }
+.unlock-fill { height: 100%; background: var(--mint); transition: width 1s linear; }
+
+/* ── TEAM TAB ── */
+.team-info-block { text-align: center; padding: 1.5rem 0 1.75rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
+.team-info-name  { font-family: 'Bebas Neue', sans-serif; font-size: 2.4rem; color: var(--mint); line-height: 1; margin-bottom: .2rem; }
+.team-info-pts   { font-family: 'Bebas Neue', sans-serif; font-size: 2.4rem; color: var(--white); line-height: 1; margin-bottom: .5rem; }
+.team-info-hint  { font-size: .8rem; color: var(--text); font-weight: 300; line-height: 1.6; }
+
+/* ── HOST CONTROLS ── */
+
+
+/* ── MISSION POPUP ── */
+.popup-overlay {
+  display: none; position: fixed; inset: 0; z-index: 50;
+  background: rgba(0,0,0,.85);
+  align-items: flex-end; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.popup-overlay.open { display: flex; }
+.popup-sheet {
+  background: var(--dark); border: 1px solid var(--border);
+  border-bottom: none; width: 100%; max-width: 480px;
+  padding: 1.5rem 1.25rem;
+  padding-bottom: calc(1.5rem + var(--safe-bottom));
+  animation: sheetUp .25s ease;
+  border-radius: 12px 12px 0 0;
+}
+@keyframes sheetUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+.popup-meta { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
+.popup-type { font-family: 'Space Mono', monospace; font-size: .55rem; color: var(--mint); letter-spacing: .2em; text-transform: uppercase; }
+.popup-pts  { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; color: var(--mint); }
+.popup-pts.bonus { color: var(--orange); }
+.popup-q    { font-size: 1rem; color: var(--white); line-height: 1.65; margin-bottom: 1.25rem; font-weight: 300; }
+.popup-opts { display: flex; flex-direction: column; gap: .5rem; margin-bottom: .75rem; }
+.popup-opt  { padding: .85rem 1rem; background: var(--black); border: 1px solid var(--border); cursor: pointer; font-family: 'Space Mono', monospace; font-size: .72rem; color: var(--white); text-align: left; width: 100%; min-height: 48px; transition: border-color .15s, background .15s; border-radius: 2px; }
+.popup-opt:active { opacity: .8; }
+.popup-opt.correct { border-color: var(--mint); background: rgba(61,255,160,.08); color: var(--mint); }
+.popup-opt.wrong   { border-color: var(--red); background: rgba(255,107,107,.08); color: var(--red); }
+.popup-close { width: 100%; padding: .75rem; background: transparent; border: 1px solid var(--border); color: var(--text); font-family: 'Space Mono', monospace; font-size: .65rem; cursor: pointer; border-radius: 2px; }
+
+/* ── EINDSCHERM ── */
+.end-title { font-family: 'Bebas Neue', sans-serif; font-size: 4rem; color: var(--mint); letter-spacing: .04em; line-height: 1; text-align: center; }
+.end-sub   { font-family: 'Space Mono', monospace; font-size: .55rem; letter-spacing: .25em; color: rgba(61,255,160,.4); text-transform: uppercase; text-align: center; margin-bottom: 2rem; }
+.end-row   { display: flex; align-items: center; gap: .75rem; padding: .85rem 1rem; background: var(--card); border: 1px solid var(--border); margin-bottom: .4rem; border-radius: 2px; width: 100%; max-width: 380px; }
+.end-rank  { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; width: 32px; color: var(--text); }
+.end-rank.gold   { color: #FFD700; }
+.end-rank.silver { color: #C0C0C0; }
+.end-rank.bronze { color: #CD7F32; }
+.end-name { font-family: 'Space Mono', monospace; font-size: .8rem; flex: 1; }
+.end-pts  { font-family: 'Bebas Neue', sans-serif; font-size: 1.7rem; color: var(--mint); }
+
+/* ── MAPBOX MARKERS ── */
+.mapboxgl-ctrl-logo, .mapboxgl-ctrl-attrib { display: none !important; }
+
+/* Marker elementen — Mapbox positioneert via setLngLat + anchor:'center' */
+.mk-me {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #4aaeff; border: 2.5px solid white;
+  box-shadow: 0 0 0 4px rgba(74,174,255,.25), 0 0 12px #4aaeff;
+  pointer-events: none;
+}
+.mk-team {
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--orange); border: 2px solid white;
+  box-shadow: 0 0 0 3px rgba(255,159,67,.2), 0 0 8px var(--orange);
+  pointer-events: none;
+}
+/* mk-mission niet meer gebruikt als HTML element — nu Mapbox symbol layer */
 </style>
 </head>
 <body>
 
-<div class="logo">Gridlock</div>
-<div class="logo-sub">dé city battle</div>
-
-<!-- SCHERM 1: START -->
-<div class="screen active" id="screen-start">
-  <div class="card">
-    <div class="card-title">Nieuwe game starten</div>
-    <input type="text" id="host-team-name" placeholder="Jouw teamnaam" maxlength="20">
-    <button class="btn-primary" onclick="hostGame()">Game aanmaken →</button>
-  </div>
-
-  <div class="divider">of</div>
-
-  <div class="card">
-    <div class="card-title">Joinen met code</div>
-    <input type="text" id="join-team-name" placeholder="Jouw teamnaam" maxlength="20">
-    <input type="text" id="join-code" placeholder="Game-code (bijv. GRD-4829)" maxlength="10" style="text-transform:uppercase; letter-spacing:0.2em;">
-    <button class="btn-ghost" onclick="joinGame()">Joinen →</button>
-  </div>
-
-  <div class="error-msg" id="start-error"></div>
-</div>
-
-<!-- SCHERM 2: LOBBY (HOST) -->
-<div class="screen" id="screen-lobby-host">
-  <div class="game-code-display">
-    <div class="game-code-label">Game-code — deel dit met je teams</div>
-    <div class="game-code" id="display-code">---</div>
-    <div class="game-code-hint">Iedereen gaat naar playgridlock.nl en vult deze code in</div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">Teams in de lobby</div>
-    <div class="teams-count">
-      <span id="team-count">1</span> / 6 teams ingecheckt
+<!-- ══ VIEW: START ══ -->
+<div id="view-start" class="view active">
+  <div class="lobby-wrap">
+    <div class="lobby-header">
+      <div class="gl-logo">Gridlock</div>
+      <div class="gl-sub">dé city battle</div>
     </div>
-    <div class="teams-list" id="host-teams-list"></div>
-    <div class="waiting-indicator">Wachten op teams<span class="waiting-dots"></span></div>
-  </div>
 
-  <button class="btn-primary" id="start-btn" onclick="startGame()">Start de battle →</button>
-  <button class="btn-danger" onclick="leaveGame()">← Verlaat lobby</button>
-</div>
-
-<!-- SCHERM 2: LOBBY (JOINER) -->
-<div class="screen" id="screen-lobby-join">
-  <div class="card">
-    <div class="card-title">Ingecheckt ✓</div>
-    <div class="game-code-display" style="margin-bottom:0;">
-      <div class="game-code-label">Game-code</div>
-      <div class="game-code" id="display-code-join">---</div>
+    <div class="card">
+      <div class="card-label">Game starten of joinen</div>
+      <input class="gl-input" id="join-name" placeholder="Jouw teamnaam" maxlength="20" autocomplete="off">
+      <input class="gl-input" id="join-code" placeholder="Gamecode (bijv. GRD-4829)" maxlength="10" style="text-transform:uppercase;letter-spacing:.15em;" autocomplete="off">
+      <button class="btn btn-mint" onclick="joinGame()">Joinen →</button>
+      <button class="btn btn-ghost" onclick="createGame()" style="margin-top:.5rem;">Nieuwe game aanmaken →</button>
     </div>
-  </div>
 
-  <div class="card">
-    <div class="card-title">Teams in de lobby</div>
-    <div class="teams-count">
-      <span id="team-count-join">1</span> / 6 teams ingecheckt
+    <div class="error-msg" id="start-error"></div>
+
+    <button class="btn btn-ghost" onclick="testMode()" style="border-color:#222;color:#444;font-size:.62rem;margin-top:.5rem;">🧪 Testmodus (solo)</button>
+  </div>
+</div>
+
+<!-- ══ VIEW: GAME LOBBY (creator) ══ -->
+<div id="view-lobby-host" class="view">
+  <div class="lobby-wrap">
+    <div class="lobby-header">
+      <div class="gl-logo">Gridlock</div>
+      <div class="gl-sub">game aangemaakt</div>
     </div>
-    <div class="teams-list" id="join-teams-list"></div>
-    <div class="waiting-indicator">Wachten tot de host de game start<span class="waiting-dots"></span></div>
+    <div class="code-box">
+      <div class="code-lbl">Deel deze code met alle teams</div>
+      <div class="code-val" id="lobby-code">---</div>
+      <div class="code-hint">playgridlock.nl · vul de code in om te joinen</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Teams in de lobby</div>
+      <div class="teams-count"><b id="lobby-count">1</b> / 6 teams</div>
+      <div class="team-list" id="host-team-list"></div>
+      <div class="waiting">Wachten op teams</div>
+    </div>
+    <button class="btn btn-mint" id="start-btn" onclick="startGame()">Start de battle →</button>
+    <div style="font-family:'Space Mono',monospace;font-size:.55rem;color:#444;text-align:center;padding:.5rem 0;">Minimaal 2 teams nodig om te starten</div>
+    <button class="btn btn-danger" onclick="leaveGame()">← Verlaat lobby</button>
   </div>
-
-  <button class="btn-danger" onclick="leaveGame()">← Verlaat lobby</button>
 </div>
 
-<!-- SCHERM 3: IN HET SPEL -->
-<div class="screen" id="screen-game">
-  <div class="game-header">
-    <div class="game-title">Battle loopt!</div>
-    <div class="game-subtitle">Zoek de opdrachten op de kaart</div>
+<!-- ══ VIEW: LOBBY JOINER ══ -->
+<div id="view-lobby-join" class="view">
+  <div class="lobby-wrap">
+    <div class="lobby-header">
+      <div class="gl-logo">Gridlock</div>
+      <div class="gl-sub">ingecheckt ✓</div>
+    </div>
+    <div class="code-box">
+      <div class="code-lbl">Jij speelt mee</div>
+      <div class="code-val" id="join-code-display">---</div>
+      <div class="code-hint">Wacht tot de host de game start</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Teams in de lobby</div>
+      <div class="teams-count"><b id="join-count">1</b> / 6 teams</div>
+      <div class="team-list" id="join-team-list"></div>
+      <div class="waiting">Wachten op de host</div>
+    </div>
+    <button class="btn btn-danger" onclick="leaveGame()">← Verlaat lobby</button>
   </div>
-
-  <div class="status-bar">
-    <span>● LIVE</span>
-    <span id="game-code-display">---</span>
-    <span id="game-timer">00:00</span>
-  </div>
-
-  <div class="card">
-    <div class="card-title">Scorebord</div>
-    <div class="scoreboard" id="scoreboard"></div>
-  </div>
-
-  <div class="card" style="text-align:center;">
-    <div class="card-title">Jouw team</div>
-    <div style="font-family:'Bebas Neue',sans-serif; font-size:1.8rem; color:var(--mint); margin-bottom:0.5rem;" id="my-team-display">---</div>
-    <div style="font-size:0.85rem; color:var(--text); font-weight:300;">Opdrachten verschijnen op de kaart zodra je in de buurt bent</div>
-    <div style="font-family:'Space Mono',monospace; font-size:2rem; color:var(--white); margin-top:1rem;" id="my-score-display">0 pts</div>
-  </div>
-
-  <button class="btn-danger" onclick="leaveGame()">← Verlaat game</button>
 </div>
 
-<!-- Firebase -->
+<!-- ══ VIEW: GAME ══ -->
+<div id="view-game" class="view">
+  <!-- Kaart — vult alles -->
+  <div id="map"></div>
+
+  <!-- Top bar -->
+  <div class="game-topbar">
+    <div class="topbar-logo">Gridlock</div>
+    <div class="topbar-live"><div class="live-dot"></div>LIVE</div>
+    <div class="topbar-timer" id="game-timer">00:00</div>
+  </div>
+
+  <!-- Meldingen -->
+  <div class="oob" id="oob-banner">⚠️ Buiten speelgebied — kom terug voor punten</div>
+  <div class="bonus-toast" id="bonus-toast">⭐ Bonusopdracht verschenen!</div>
+
+  <!-- Score pill boven nav -->
+  <div class="score-pill" id="score-pill">
+    <div class="pill-rank" id="pill-rank">—</div>
+    <div class="pill-name" id="pill-name">Verbinden...</div>
+    <div class="pill-pts"  id="pill-pts">0 pts</div>
+  </div>
+
+  <!-- Bottom nav -->
+  <div class="bottom-nav">
+    <button class="nav-btn" id="nav-score"    onclick="openPanel('panel-score')">
+      <span class="nav-icon">🏆</span><span class="nav-label">Score</span>
+    </button>
+    <button class="nav-btn" id="nav-missions" onclick="openPanel('panel-missions')">
+      <span class="nav-icon">📍</span><span class="nav-label">Opdrachten</span>
+    </button>
+    <button class="nav-btn" id="nav-team"     onclick="openPanel('panel-team')">
+      <span class="nav-icon">👤</span><span class="nav-label">Team</span>
+    </button>
+  </div>
+</div>
+
+<!-- ══ PANELS ══ -->
+<div class="panel" id="panel-score">
+  <div class="panel-topbar">
+    <div class="panel-title">🏆 Scorebord</div>
+    <button class="panel-back" onclick="closePanel()">← Kaart</button>
+  </div>
+  <div class="panel-body" id="scoreboard"></div>
+</div>
+
+<div class="panel" id="panel-missions">
+  <div class="panel-topbar">
+    <div class="panel-title">📍 Opdrachten</div>
+    <button class="panel-back" onclick="closePanel()">← Kaart</button>
+  </div>
+  <div class="panel-body" id="missions-list"></div>
+</div>
+
+<div class="panel" id="panel-team">
+  <div class="panel-topbar">
+    <div class="panel-title">👤 Mijn team</div>
+    <button class="panel-back" onclick="closePanel()">← Kaart</button>
+  </div>
+  <div class="panel-body">
+    <div class="team-info-block">
+      <div class="team-info-name" id="info-team-name">---</div>
+      <div class="team-info-pts"  id="info-team-pts">0 pts</div>
+      <div class="team-info-hint">Kom binnen 25m van een opdracht om hem te openen.<br>Eén poging — fout = opdracht gesloten.</div>
+    </div>
+
+    <button class="btn btn-danger" onclick="leaveGame()">← Verlaat game</button>
+  </div>
+</div>
+
+<!-- ══ VIEW: EINDSTAND ══ -->
+<div id="view-end" class="view">
+  <div class="end-title">Tijd!</div>
+  <div class="end-sub">eindstand</div>
+  <div id="end-rows" style="width:100%;max-width:380px;margin-bottom:2rem;"></div>
+  <button class="btn btn-mint" onclick="goToStart()" style="max-width:300px;">← Terug naar start</button>
+</div>
+
+<!-- ══ MISSION POPUP ══ -->
+<div class="popup-overlay" id="mission-popup">
+  <div class="popup-sheet">
+    <div class="popup-meta">
+      <div class="popup-type" id="popup-type">---</div>
+      <div class="popup-pts"  id="popup-pts">---</div>
+    </div>
+    <div class="popup-q"    id="popup-q">---</div>
+    <div class="popup-opts" id="popup-opts"></div>
+    <button class="popup-close" onclick="closePopup()">Sluit</button>
+  </div>
+</div>
+
+<!-- ══ JAVASCRIPT ══ -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getDatabase, ref, set, get, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, set, get, onValue, update, remove }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyDyITaoy4-Htv6Fqv-ssaNhLDbSMVRMuuY",
-    authDomain: "gridlock-cc123.firebaseapp.com",
-    databaseURL: "https://gridlock-cc123-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "gridlock-cc123",
-    storageBucket: "gridlock-cc123.firebasestorage.app",
-    messagingSenderId: "1074158392885",
-    appId: "1:1074158392885:web:767487b337cd00c5d1037c"
+/* ── Mapbox ── */
+mapboxgl.accessToken = 'pk.eyJ1IjoiZmVsaXh6YW5kYW5lbCIsImEiOiJjbW1haDNmYzgwMGR0MnBzYm5veGh1cTFuIn0.CnOV8j9RzeSDZrWtj4YjRg';
+
+/* ── Firebase ── */
+const fbApp = initializeApp({
+  apiKey:"AIzaSyDyITaoy4-Htv6Fqv-ssaNhLDbSMVRMuuY",
+  authDomain:"gridlock-cc123.firebaseapp.com",
+  databaseURL:"https://gridlock-cc123-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"gridlock-cc123",
+  storageBucket:"gridlock-cc123.firebasestorage.app",
+  messagingSenderId:"1074158392885",
+  appId:"1:1074158392885:web:767487b337cd00c5d1037c"
+});
+const db = getDatabase(fbApp);
+
+/* ── Speelgebied Utrecht centrum ── */
+const BOUNDS = { minLat:52.0780, maxLat:52.1020, minLng:5.0980, maxLng:5.1480 };
+
+/* ── Opdrachten ── */
+const ALL_MISSIONS = [
+  // ── ALTIJD BESCHIKBAAR (16 locaties) ──
+  { id:'m1', name:'Domtoren', icon:'🗼', type:'Cijferraadsel',
+    lat:52.09075, lng:5.12130, points:200, unlockAfter:0,
+    question:'Hoe hoog is de Domtoren in Utrecht precies?',
+    options:['92 meter','102 meter','112 meter','122 meter'], answer:2 },
+  { id:'m2', name:'Oudegracht', icon:'🌊', type:'Historisch raadsel',
+    lat:52.09210, lng:5.11820, points:175, unlockAfter:0,
+    question:'De Oudegracht heeft unieke kelders direct aan het water. Waarvoor werden ze oorspronkelijk gebruikt?',
+    options:['Als gevangenis','Als wijnopslag en handel','Als wasruimte','Als schuilkelder'], answer:1 },
+  { id:'m3', name:'Utrecht Centraal', icon:'🚂', type:'Fotopuzzel',
+    lat:52.08940, lng:5.10987, points:125, unlockAfter:0,
+    question:'Hoe heet het grote overdekte winkelcentrum direct naast Utrecht Centraal?',
+    options:['Hoog Catharijne','De Passage','Stadshart','City Plaza'], answer:0 },
+  { id:'m4', name:'Domplein', icon:'🏛️', type:'Verborgen verhaal',
+    lat:52.09060, lng:5.12110, points:225, unlockAfter:0,
+    question:'Op het Domplein zijn contouren van een verdwenen gebouw zichtbaar. Welk gebouw?',
+    options:['Een Romeins fort','Het oude stadhuis','Het schip van de Domkerk','Een middeleeuws paleis'], answer:2 },
+  { id:'m5', name:'Trajectum Lumen', icon:'💡', type:'Logica-opdracht',
+    lat:52.09190, lng:5.11750, points:150, unlockAfter:0,
+    question:'Trajectum Lumen is een lichtroute door Utrecht. Wat betekent "Trajectum" in het Latijn?',
+    options:['Lichtpad','Doorwaadbare plaats','Oude stad','Rivieroversteek'], answer:1 },
+  { id:'m6', name:'Centraal Museum', icon:'🎨', type:'Cijferraadsel',
+    lat:52.08658, lng:5.11693, points:200, unlockAfter:0,
+    question:'Het Centraal Museum bezit de grootste collectie ter wereld van welke Nederlandse ontwerper?',
+    options:['Piet Mondriaan','Gerrit Rietveld','Vincent van Gogh','M.C. Escher'], answer:1 },
+  { id:'m7', name:'Stadhuisbrug', icon:'🌉', type:'Verborgen verhaal',
+    lat:52.09285, lng:5.11870, points:150, unlockAfter:0,
+    question:'Welke rivier stroomt door de Oudegracht in Utrecht?',
+    options:['De Rijn','De Vecht','De Lek','De Hollandse IJssel'], answer:0 },
+  { id:'m8', name:'Neude', icon:'📮', type:'Historisch raadsel',
+    lat:52.09335, lng:5.12095, points:175, unlockAfter:0,
+    question:'Het imposante gebouw op de Neude was vroeger een postkantoor. Hoe heet het nu?',
+    options:['De Winkel van Sinkel','Het Postkantoor','Neude 7','De Passage'], answer:1 },
+  { id:'m9', name:'Paushuize', icon:'⚓', type:'Logica-opdracht',
+    lat:52.09178, lng:5.12370, points:200, unlockAfter:0,
+    question:'In het Paushuize aan de Agnietenstraat woonde ooit de enige Nederlandse paus. Wie was dat?',
+    options:['Paus Johannes','Paus Adrianus VI','Paus Clemens','Paus Gregorius'], answer:1 },
+  { id:'m10', name:'Rietveld Schröderhuis', icon:'🏠', type:'Fotopuzzel',
+    lat:52.08530, lng:5.13750, points:250, unlockAfter:0,
+    question:'Het Rietveld Schröderhuis staat op de UNESCO Werelderfgoedlijst. In welk jaar werd het gebouwd?',
+    options:['1908','1916','1924','1932'], answer:2 },
+  { id:'m11', name:'Winkel van Sinkel', icon:'🏺', type:'Historisch raadsel',
+    lat:52.09330, lng:5.11690, points:175, unlockAfter:0,
+    question:'De Winkel van Sinkel aan de Oudegracht was in 1838 bijzonder. Waarom?',
+    options:['Eerste supermarkt van NL','Eerste warenhuis van NL','Eerste apotheek van NL','Eerste café van Utrecht'], answer:1 },
+  { id:'m12', name:'Dom Under', icon:'🏺', type:'Cijferraadsel',
+    lat:52.09040, lng:5.12060, points:225, unlockAfter:0,
+    question:'Onder het Domplein ligt Dom Under met Romeinse resten. Welk Romeins fort lag hier?',
+    options:['Noviomagus','Trajectum','Castellum','Castra Regina'], answer:1 },
+  { id:'m13', name:'Janskerk', icon:'⛪', type:'Historisch raadsel',
+    lat:52.09390, lng:5.12150, points:175, unlockAfter:0,
+    question:'De Janskerk in Utrecht heeft een opvallende eigenschap vergeleken met andere kerken. Welke?',
+    options:['Geen toren','Ronde vorm','Roze bakstenen','Dubbele ingang'], answer:0 },
+  { id:'m14', name:'Lepelenburg', icon:'🌳', type:'Logica-opdracht',
+    lat:52.08920, lng:5.12530, points:150, unlockAfter:0,
+    question:'Park Lepelenburg grenst aan een historische singel. Welke dieren leven er in de vijver?',
+    options:['Krokodillen','Zwanen en eenden','Vissen en schildpadden','Flamingos'], answer:1 },
+  { id:'m15', name:'Munt Utrecht', icon:'🪙', type:'Cijferraadsel',
+    lat:52.09560, lng:5.11840, points:200, unlockAfter:0,
+    question:'Utrecht had vroeger een eigen munt. Hoeveel stuivers was één gulden waard?',
+    options:['10 stuivers','16 stuivers','20 stuivers','25 stuivers'], answer:2 },
+  { id:'m16', name:'Catharijneconvent', icon:'✝️', type:'Verborgen verhaal',
+    lat:52.09000, lng:5.11340, points:200, unlockAfter:0,
+    question:'Museum Catharijneconvent herbergt de grootste collectie christelijke kunst van Nederland. In welk oud gebouw zit het?',
+    options:['Voormalig ziekenhuis','Voormalig klooster','Voormalige gevangenis','Voormalig stadhuis'], answer:1 },
+
+  // ── VRIJKOMT NA 45 MINUTEN (4 locaties) ──
+  { id:'m17', name:'Sonnenborgh', icon:'🔭', type:'Cijferraadsel',
+    lat:52.08810, lng:5.12660, points:350, unlockAfter:45,
+    question:'Sterrenwacht Sonnenborgh staat op een bijzondere plek. Wat stond hier vroeger?',
+    options:['Een kerk','Een bolwerk van de stadsmuur','Een marktplein','Een gasthuis'], answer:1 },
+  { id:'m18', name:'Nicolaikerk', icon:'🕌', type:'Historisch raadsel',
+    lat:52.09430, lng:5.11920, points:300, unlockAfter:45,
+    question:'De Nicolaikerk is een van de oudste kerken van Utrecht. Uit welke eeuw stamt de oudste kern?',
+    options:['8e eeuw','10e eeuw','12e eeuw','14e eeuw'], answer:2 },
+  { id:'m19', name:'Geertekerk', icon:'🏯', type:'Verborgen verhaal',
+    lat:52.09010, lng:5.12890, points:325, unlockAfter:45,
+    question:'De Geertekerk werd lang als militair pakhuis gebruikt. Door welk land was Utrecht toen bezet?',
+    options:['Spanje','Frankrijk','Pruisen','Oostenrijk'], answer:1 },
+  { id:'m20', name:'Academiegebouw UU', icon:'🎓', type:'Logica-opdracht',
+    lat:52.09250, lng:5.12310, points:300, unlockAfter:45,
+    question:'De Universiteit Utrecht werd opgericht in 1636. Wie gaf toestemming voor de oprichting?',
+    options:['De koning van Spanje','De Staten van Utrecht','Prins Maurits','De Rooms-Duitse keizer'], answer:1 },
+
+  // ── BONUS OPDRACHTEN ──
+  { id:'bonus1', name:'BONUS: Ganzenmarkt', icon:'⭐', type:'Bonusopdracht',
+    lat:52.09300, lng:5.12010, points:400, unlockAfter:0, isBonus:true,
+    question:'Op de Ganzenmarkt staat een standbeeld van Graaf Jan van Nassau. Welke bijnaam had hij?',
+    options:['De Stoere','De Oude','De Blinde','De Vrome'], answer:2 },
+  { id:'bonus2', name:'BONUS: Broederenkerk', icon:'⭐', type:'Bonusopdracht',
+    lat:52.09470, lng:5.11680, points:450, unlockAfter:0, isBonus:true,
+    question:'De Broederenkerk werd gebouwd door welke kloosterorde?',
+    options:['Franciscanen','Dominicanen','Augustijnen','Benedictijnen'], answer:1 },
+];
+
+/* ── State ── */
+let currentGame = null, currentTeam = null, isHost = false;
+let gameStartedAt = null;
+let map = null, myMarker = null, teamMarkers = {}, missionMarkers = {};
+let myLat = null, myLng = null;
+let activeMissions = [];
+let activeBonusIds = new Set();
+let teamMissionState = {};
+let timerInterval = null, unsubGame = null, bonusTimer = null;
+let renderPending = false, lastRender = 0;
+const teamPosHistory = {};
+let openPanelId = null;
+
+// Instellingen — worden overschreven vanuit Firebase config
+let SETTINGS = {
+  gameDuration:120, gpsRadius:25, penaltyPct:25,
+  teamDelaySec:60, pointDeduct:40, failBonus:30,
+  bonusFirstMin:20, bonusIntervalMin:25
+};
+
+/* ── Globals voor onclick handlers ── */
+window.joinGame=joinGame; window.startGame=startGame;
+window.leaveGame=leaveGame; window.testMode=testMode; window.goToStart=goToStart;
+window.openPanel=openPanel; window.closePanel=closePanel;
+window.openMission=openMission; window.submitAnswer=submitAnswer; window.closePopup=closePopup;
+
+/* ── Laad config (missions + settings) uit Firebase ── */
+async function loadConfig(){
+  try {
+    const [mSnap, sSnap] = await Promise.all([
+      get(ref(db,'config/missions')),
+      get(ref(db,'config/settings'))
+    ]);
+    if(mSnap.exists()){
+      ALL_MISSIONS.length = 0;
+      Object.values(mSnap.val()).forEach(m=>ALL_MISSIONS.push(m));
+    }
+    if(sSnap.exists()){
+      Object.assign(SETTINGS, sSnap.val());
+    }
+  } catch(e){ console.warn('Config laden mislukt, gebruik defaults'); }
+}
+
+/* ──────────────────── HELPERS ────────────────────── */
+function genCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='GRD-';for(let i=0;i<4;i++)s+=c[Math.floor(Math.random()*c.length)];return s;}
+function distM(la1,ln1,la2,ln2){const R=6371000,φ1=la1*Math.PI/180,φ2=la2*Math.PI/180,Δφ=(la2-la1)*Math.PI/180,Δλ=(ln2-ln1)*Math.PI/180,a=Math.sin(Δφ/2)**2+Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+function elapsedMin(){return gameStartedAt?(Date.now()-gameStartedAt)/60000:0;}
+function showError(id,msg){const el=document.getElementById(id);el.textContent=msg;setTimeout(()=>{if(el.textContent===msg)el.textContent='';},3500);}
+
+function showView(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  // view-game: map initialiseert zelf na showView via rAF in initGame/testMode
+}
+
+/* ── Panels ── */
+function openPanel(id){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('open'));
+  document.getElementById(id).classList.add('open');
+  openPanelId = id;
+  // Zet nav active state
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  const map2 = {'panel-score':'nav-score','panel-missions':'nav-missions','panel-team':'nav-team'};
+  if(map2[id]) document.getElementById(map2[id]).classList.add('active');
+  // Render opdrachten als dat panel opent
+  if(id==='panel-missions') scheduleRender();
+}
+function closePanel(){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('open'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  openPanelId = null;
+}
+
+/* ──────────────────── HOST ────────────────────── */
+async function createGame(){
+  const name = document.getElementById('join-name').value.trim();
+  if(!name) return showError('start-error','Vul eerst een teamnaam in');
+  await loadConfig();
+  const code = genCode();
+  currentGame=code; currentTeam=name; isHost=true;
+  await set(ref(db,`games/${code}`),{
+    status:'waiting', creator:name, createdAt:Date.now(),
+    teams:{[name]:{name,score:0,isHost:true,joinedAt:Date.now()}}
+  });
+  document.getElementById('lobby-code').textContent=code;
+  showView('view-lobby-host');
+  listenLobby(code);
+}
+window.createGame=createGame;
+
+/* ──────────────────── JOIN ────────────────────── */
+async function joinGame(){
+  const name = document.getElementById('join-name').value.trim();
+  const code = document.getElementById('join-code').value.trim().toUpperCase();
+  if(!name) return showError('start-error','Vul een teamnaam in');
+  if(!code) return showError('start-error','Vul een gamecode in');
+  await loadConfig();
+  const snap = await get(ref(db,`games/${code}`));
+  if(!snap.exists()) return showError('start-error','Gamecode niet gevonden');
+  const gd = snap.val();
+  if(gd.status==='started') return showError('start-error','Game is al bezig');
+  if(gd.teams?.[name])      return showError('start-error','Teamnaam al bezet');
+  if(gd.teams&&Object.keys(gd.teams).length>=6) return showError('start-error','Lobby vol (max 6)');
+  currentGame=code; currentTeam=name; isHost=false;
+  await update(ref(db,`games/${code}/teams/${name}`),{name,score:0,isHost:false,joinedAt:Date.now()});
+  document.getElementById('join-code-display').textContent=code;
+  showView('view-lobby-join');
+  listenLobby(code);
+}
+
+/* ──────────────────── LOBBY LISTENER ────────────────────── */
+function listenLobby(code){
+  if(unsubGame) unsubGame();
+  unsubGame = onValue(ref(db,`games/${code}`), snap=>{
+    if(!snap.exists()){leaveGame();return;}
+    const d = snap.val();
+    const teams = d.teams ? Object.values(d.teams).sort((a,b)=>a.joinedAt-b.joinedAt) : [];
+
+    // Update beide teamlijsten
+    updateTeamList('host-team-list', teams);
+    updateTeamList('join-team-list', teams);
+    document.getElementById('lobby-count').textContent = teams.length;
+    document.getElementById('join-count').textContent  = teams.length;
+
+    const btn = document.getElementById('start-btn');
+    btn.disabled = teams.length < 2;
+    btn.textContent = teams.length>=2 ? `Start de battle met ${teams.length} teams →` : 'Wacht op 2+ teams...';
+
+    if(d.status==='started'){ unsubGame&&unsubGame(); initGame(d); }
+    if(d.status==='ended')    showEndScreen(d);
+  });
+}
+
+function updateTeamList(listId, teams){
+  const list = document.getElementById(listId); if(!list) return;
+  teams.forEach((t,i)=>{
+    let row = list.querySelector(`[data-t="${CSS.escape(t.name)}"]`);
+    if(!row){ row=document.createElement('div'); row.className='team-row'; row.setAttribute('data-t',t.name); row.innerHTML=`<div class="team-dot"></div><div class="team-name">${t.name}</div><div class="team-badge ${t.isHost?'host':'joined'}">${t.isHost?'Host':'Ingecheckt'}</div>`; list.appendChild(row); }
+    if(list.children[i]!==row) list.insertBefore(row,list.children[i]||null);
+  });
+  list.querySelectorAll('[data-t]').forEach(r=>{ if(!teams.find(t=>t.name===r.dataset.t)) r.remove(); });
+}
+
+async function startGame(){
+  const snap = await get(ref(db,`games/${currentGame}`)); if(!snap.exists()) return;
+  await update(ref(db,`games/${currentGame}`),{status:'started',startedAt:Date.now()});
+}
+
+/* ──────────────────── GAME INIT ────────────────────── */
+function initGame(data){
+  if(map) return;
+  gameStartedAt = data.startedAt;
+  activeMissions = ALL_MISSIONS.filter(m=>!m.isBonus);
+
+  showView('view-game');
+  document.getElementById('info-team-name').textContent = currentTeam;
+  document.getElementById('pill-name').textContent = currentTeam;
+
+  // Wacht 2 frames zodat #map een vaste pixel-grootte heeft voor Mapbox init
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    initMap();
+    startTimer(data.startedAt);
+    startGPS();
+      scheduleRender();
+  }));
+
+  // Hoofd Firebase listener
+  unsubGame = onValue(ref(db,`games/${currentGame}`), snap=>{
+    if(!snap.exists()) return;
+    const d = snap.val();
+    if(d.teams) updateScoreboard(Object.values(d.teams));
+    if(d.teams) updateTeamMarkersDelayed(d.teams);
+
+    // Bonus opdrachten
+    if(d.activeBonuses){
+      let changed=false;
+      Object.keys(d.activeBonuses).forEach(id=>{
+        if(!activeBonusIds.has(id)){
+          activeBonusIds.add(id);
+          const bm=ALL_MISSIONS.find(m=>m.id===id);
+          if(bm&&!activeMissions.find(m=>m.id===id)){ activeMissions.push(bm); changed=true; }
+        }
+      });
+      if(changed){ showBonusToast(); addMissionMarkers(); scheduleRender(); }
+    }
+    if(d.status==='ended') showEndScreen(d);
+  });
+
+  // Mijn opdrachtstatus
+  onValue(ref(db,`games/${currentGame}/teamMissions/${currentTeam}`), snap=>{
+    if(!snap.exists()) return;
+    const prev = JSON.stringify(teamMissionState);
+    Object.assign(teamMissionState, snap.val());
+    if(JSON.stringify(teamMissionState)!==prev){ updateMarkerStates(); scheduleRender(); }
+  });
+}
+
+/* ──────────────────── KAART ────────────────────── */
+function initMap(){
+  map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/dark-v11',
+    center: [5.1214, 52.0908],
+    zoom: 14.5,
+    pitchWithRotate: false,
+    attributionControl: false
+  });
+
+  // Grenslijn wacht op style load
+  map.on('load', ()=>{
+    map.addSource('bounds',{type:'geojson',data:{type:'Feature',geometry:{type:'Polygon',coordinates:[[
+      [BOUNDS.minLng,BOUNDS.minLat],[BOUNDS.maxLng,BOUNDS.minLat],[BOUNDS.maxLng,BOUNDS.maxLat],
+      [BOUNDS.minLng,BOUNDS.maxLat],[BOUNDS.minLng,BOUNDS.minLat]
+    ]]}}});
+    map.addLayer({id:'bounds-fill',type:'fill',source:'bounds',paint:{'fill-color':'#3DFFA0','fill-opacity':0.035}});
+    map.addLayer({id:'bounds-line',type:'line',source:'bounds',paint:{'line-color':'#3DFFA0','line-width':1.5,'line-opacity':0.4,'line-dasharray':[5,4]}});
+  });
+
+  // Markers toevoegen na map idle = kaart volledig geladen en gerenderd
+  map.once('idle', ()=>addMissionMarkers());
+}
+
+// ── Markers als Mapbox GL lagen (zitten IN de kaart, verschuiven nooit) ──
+function drawMissionIcon(m){
+  const size = 44;
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const st = teamMissionState[m.id];
+  const locked = !m.isBonus && elapsedMin() < m.unlockAfter;
+
+  // Kleur
+  let bg = '#3DFFA0';
+  if(st==='done')   bg = '#3a3a3a';
+  if(st==='failed') bg = '#5a1a1a';
+  if(locked)        bg = '#1e1e2e';
+  if(m.isBonus && !st) bg = '#FF9F43';
+
+  // Schaduw
+  ctx.shadowColor = 'rgba(0,0,0,0.6)';
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetY = 2;
+
+  // Cirkel
+  ctx.beginPath();
+  ctx.arc(size/2, size/2, size/2-3, 0, Math.PI*2);
+  ctx.fillStyle = bg;
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = st ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.85)';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Emoji / icoon
+  const emoji = st==='done'?'✅': st==='failed'?'❌': locked?'🔒': m.icon;
+  ctx.font = `${size*0.46}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(emoji, size/2, size/2+1);
+
+  return { width:size, height:size, data: ctx.getImageData(0,0,size,size).data };
+}
+
+function addMissionMarkers(){
+  if(!map || !map.loaded()) return;
+
+  // Teken alle iconen en registreer als Mapbox image
+  activeMissions.forEach(m=>{
+    const imgId = 'icon-' + m.id;
+    const imgData = drawMissionIcon(m);
+    if(map.hasImage(imgId)) map.updateImage(imgId, imgData);
+    else map.addImage(imgId, imgData);
+  });
+
+  // GeoJSON source met alle locaties
+  const geojson = {
+    type:'FeatureCollection',
+    features: activeMissions.map(m=>({
+      type:'Feature',
+      geometry:{ type:'Point', coordinates:[m.lng, m.lat] },
+      properties:{ id:m.id, name:m.name, icon:'icon-'+m.id }
+    }))
   };
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-
-  // State
-  let currentGame = null;
-  let currentTeam = null;
-  let isHost = false;
-  let gameTimer = null;
-  let gameStartTime = null;
-  let unsubscribe = null;
-
-  // Maak functies globaal beschikbaar
-  window.hostGame = hostGame;
-  window.joinGame = joinGame;
-  window.startGame = startGame;
-  window.leaveGame = leaveGame;
-
-  // Genereer game-code
-  function generateCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = 'GRD-';
-    for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
-    return code;
-  }
-
-  // Toon scherm
-  function showScreen(id) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-  }
-
-  // Foutmelding
-  function showError(id, msg) {
-    const el = document.getElementById(id);
-    el.textContent = msg;
-    el.classList.add('show');
-    setTimeout(() => el.classList.remove('show'), 3000);
-  }
-
-  // HOST: maak game aan
-  async function hostGame() {
-    const teamName = document.getElementById('host-team-name').value.trim();
-    if (!teamName) return showError('start-error', 'Vul een teamnaam in');
-
-    const code = generateCode();
-    currentGame = code;
-    currentTeam = teamName;
-    isHost = true;
-
-    await set(ref(db, `games/${code}`), {
-      status: 'waiting',
-      host: teamName,
-      createdAt: Date.now(),
-      teams: {
-        [teamName]: { name: teamName, score: 0, isHost: true, joinedAt: Date.now() }
+  if(map.getSource('missions')){
+    map.getSource('missions').setData(geojson);
+  } else {
+    map.addSource('missions', { type:'geojson', data:geojson });
+    map.addLayer({
+      id: 'mission-symbols',
+      type: 'symbol',
+      source: 'missions',
+      layout: {
+        'icon-image': ['get','icon'],
+        'icon-size': 1,
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+        'icon-anchor': 'center'
       }
     });
-
-    document.getElementById('display-code').textContent = code;
-    showScreen('screen-lobby-host');
-    listenToGame(code);
-  }
-
-  // JOINER: join een game
-  async function joinGame() {
-    const teamName = document.getElementById('join-team-name').value.trim();
-    const code = document.getElementById('join-code').value.trim().toUpperCase();
-
-    if (!teamName) return showError('start-error', 'Vul een teamnaam in');
-    if (!code) return showError('start-error', 'Vul een game-code in');
-
-    const gameRef = ref(db, `games/${code}`);
-    const snapshot = await get(gameRef);
-
-    if (!snapshot.exists()) return showError('start-error', 'Game-code niet gevonden');
-
-    const gameData = snapshot.val();
-    if (gameData.status === 'started') return showError('start-error', 'Deze game is al gestart');
-    if (gameData.teams && gameData.teams[teamName]) return showError('start-error', 'Deze teamnaam is al bezet');
-    if (gameData.teams && Object.keys(gameData.teams).length >= 6) return showError('start-error', 'Lobby is vol (max 6 teams)');
-
-    currentGame = code;
-    currentTeam = teamName;
-    isHost = false;
-
-    await update(ref(db, `games/${code}/teams/${teamName}`), {
-      name: teamName, score: 0, isHost: false, joinedAt: Date.now()
+    map.on('click','mission-symbols', e=>{
+      onMarkerTap(e.features[0].properties.id);
     });
-
-    document.getElementById('display-code-join').textContent = code;
-    showScreen('screen-lobby-join');
-    listenToGame(code);
+    map.on('mouseenter','mission-symbols',()=>{ map.getCanvas().style.cursor='pointer'; });
+    map.on('mouseleave','mission-symbols',()=>{ map.getCanvas().style.cursor=''; });
   }
+}
 
-  // Luister naar game-updates in realtime
-  function listenToGame(code) {
-    if (unsubscribe) unsubscribe();
+function updateMarkerStates(){
+  // Herteken alleen de iconen — source en layer blijven intact
+  if(!map || !map.loaded()) return;
+  activeMissions.forEach(m=>{
+    const imgId = 'icon-' + m.id;
+    const imgData = drawMissionIcon(m);
+    if(map.hasImage(imgId)) map.updateImage(imgId, imgData);
+    else map.addImage(imgId, imgData);
+  });
+  scheduleRender();
+}
 
-    const gameRef = ref(db, `games/${code}`);
-    unsubscribe = onValue(gameRef, (snapshot) => {
-      if (!snapshot.exists()) {
-        leaveGame();
-        return;
-      }
+function onMarkerTap(mId){
+  const m = activeMissions.find(x=>x.id===mId); if(!m) return;
+  const st = teamMissionState[mId];
+  if(st) return; // al gedaan
+  const mins = elapsedMin();
+  if(!m.isBonus && mins < m.unlockAfter){ alert(`Beschikbaar na ${m.unlockAfter} minuten.`); return; }
+  if(!myLat){ alert('GPS nog niet beschikbaar.'); return; }
+  const dist = Math.round(distM(myLat,myLng,m.lat,m.lng));
+  if(dist>SETTINGS.gpsRadius) alert(`Je bent nog ${dist}m van deze opdracht.\nKom binnen 25m om hem te openen.`);
+  else openMission(mId);
+}
 
-      const data = snapshot.val();
-      const teams = data.teams ? Object.values(data.teams) : [];
-      teams.sort((a, b) => a.joinedAt - b.joinedAt);
+/* ──────────────────── GPS ────────────────────── */
+function startGPS(){
+  if(!navigator.geolocation) return;
+  navigator.geolocation.watchPosition(pos=>{
+    myLat = pos.coords.latitude;
+    myLng = pos.coords.longitude;
 
-      // Update team-lijsten in lobby
-      updateTeamsList('host-teams-list', teams);
-      updateTeamsList('join-teams-list', teams);
-
-      const count = teams.length;
-      document.getElementById('team-count').textContent = count;
-      document.getElementById('team-count-join').textContent = count;
-
-      // Start-knop: minimaal 2 teams
-      const startBtn = document.getElementById('start-btn');
-      if (count >= 2) {
-        startBtn.textContent = `Start de battle met ${count} teams →`;
-        startBtn.style.opacity = '1';
-      } else {
-        startBtn.textContent = 'Wacht op minimaal 2 teams...';
-        startBtn.style.opacity = '0.4';
-      }
-
-      // Als game gestart is → ga naar game scherm
-      if (data.status === 'started') {
-        gameStartTime = data.startedAt;
-        showGameScreen(teams, data);
-      }
-    });
-  }
-
-  // Render teams in lobby
-  function updateTeamsList(listId, teams) {
-    const list = document.getElementById(listId);
-    if (!list) return;
-    list.innerHTML = '';
-    teams.forEach(team => {
-      const div = document.createElement('div');
-      div.className = 'team-item';
-      div.innerHTML = `
-        <div class="team-dot"></div>
-        <div class="team-name">${team.name}</div>
-        <div class="team-badge ${team.isHost ? 'host' : 'joined'}">${team.isHost ? 'Host' : 'Ingecheckt'}</div>
-      `;
-      list.appendChild(div);
-    });
-  }
-
-  // HOST: start de game
-  async function startGame() {
-    const gameRef = ref(db, `games/${currentGame}`);
-    const snapshot = await get(gameRef);
-    if (!snapshot.exists()) return;
-
-    const teams = snapshot.val().teams;
-    if (!teams || Object.keys(teams).length < 2) return;
-
-    await update(gameRef, {
-      status: 'started',
-      startedAt: Date.now()
-    });
-  }
-
-  // Toon game scherm
-  function showGameScreen(teams, data) {
-    showScreen('screen-game');
-    document.getElementById('game-code-display').textContent = currentGame;
-    document.getElementById('my-team-display').textContent = currentTeam;
-
-    updateScoreboard(teams);
-    startGameTimer(data.startedAt);
-  }
-
-  // Update scorebord
-  function updateScoreboard(teams) {
-    const sorted = [...teams].sort((a, b) => b.score - a.score);
-    const board = document.getElementById('scoreboard');
-    board.innerHTML = '';
-
-    sorted.forEach((team, i) => {
-      const isMe = team.name === currentTeam;
-      const div = document.createElement('div');
-      div.className = `score-row ${isMe ? 'me' : ''}`;
-      div.innerHTML = `
-        <div class="score-rank ${i === 0 ? 'first' : ''}">${i + 1}</div>
-        <div class="score-name">
-          ${team.name}
-          ${isMe ? '<span class="score-me-tag"> ← jij</span>' : ''}
-        </div>
-        <div class="score-pts">${team.score} pts</div>
-      `;
-      board.appendChild(div);
-
-      if (isMe) {
-        document.getElementById('my-score-display').textContent = `${team.score} pts`;
-      }
-    });
-  }
-
-  // Timer
-  function startGameTimer(startedAt) {
-    if (gameTimer) clearInterval(gameTimer);
-    gameTimer = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      const min = String(Math.floor(elapsed / 60)).padStart(2, '0');
-      const sec = String(elapsed % 60).padStart(2, '0');
-      document.getElementById('game-timer').textContent = `${min}:${sec}`;
-    }, 1000);
-
-    // Ook live scorebord blijven updaten
-    const gameRef = ref(db, `games/${currentGame}`);
-    onValue(gameRef, (snapshot) => {
-      if (!snapshot.exists()) return;
-      const data = snapshot.val();
-      if (data.teams) {
-        const teams = Object.values(data.teams);
-        updateScoreboard(teams);
-      }
-    });
-  }
-
-  // Verlaat game
-  async function leaveGame() {
-    if (gameTimer) clearInterval(gameTimer);
-    if (unsubscribe) unsubscribe();
-
-    if (currentGame && currentTeam) {
-      if (isHost) {
-        // Host verlaat = game verwijderen
-        await remove(ref(db, `games/${currentGame}`));
-      } else {
-        await remove(ref(db, `games/${currentGame}/teams/${currentTeam}`));
-      }
+    // Mijn marker
+    if(!myMarker){
+      const el = document.createElement('div'); el.className='mk-me';
+      myMarker = new mapboxgl.Marker(el).setLngLat([myLng,myLat]).addTo(map);
+      map.flyTo({center:[myLng,myLat],zoom:15,duration:1800});
+    } else {
+      myMarker.setLngLat([myLng,myLat]);
     }
 
-    currentGame = null;
-    currentTeam = null;
-    isHost = false;
+    update(ref(db,`games/${currentGame}/teams/${currentTeam}`),{lat:myLat,lng:myLng,lastSeen:Date.now()});
+    checkBounds();
+    updateMarkerStates();
+    if(Date.now()-lastRender>5000) scheduleRender();
+  }, err=>console.log('GPS fout:',err), {enableHighAccuracy:true,maximumAge:3000,timeout:10000});
+}
 
-    document.getElementById('host-team-name').value = '';
-    document.getElementById('join-team-name').value = '';
-    document.getElementById('join-code').value = '';
+function checkBounds(){
+  if(!myLat) return;
+  const out = myLat<BOUNDS.minLat||myLat>BOUNDS.maxLat||myLng<BOUNDS.minLng||myLng>BOUNDS.maxLng;
+  document.getElementById('oob-banner').classList.toggle('show',out);
+}
 
-    showScreen('screen-start');
+/* ──────────────────── TEAM MARKERS (60s vertraging) ────────────────────── */
+function updateTeamMarkersDelayed(teamsData){
+  const now = Date.now();
+  Object.entries(teamsData).forEach(([name,team])=>{
+    if(name===currentTeam||!team.lat||!team.lng) return;
+    if(!teamPosHistory[name]) teamPosHistory[name]=[];
+    teamPosHistory[name].push({lat:team.lat,lng:team.lng,ts:team.lastSeen||now});
+    teamPosHistory[name] = teamPosHistory[name].filter(p=>now-p.ts<SETTINGS.teamDelaySec*2000);
+    const delayed = teamPosHistory[name].find(p=>now-p.ts>=SETTINGS.teamDelaySec*1000);
+    if(!delayed) return;
+    if(!teamMarkers[name]){
+      const el = document.createElement('div'); el.className='mk-team'; el.title=name;
+      teamMarkers[name] = new mapboxgl.Marker(el).setLngLat([delayed.lng,delayed.lat]).addTo(map);
+    } else { teamMarkers[name].setLngLat([delayed.lng,delayed.lat]); }
+  });
+}
+
+/* ──────────────────── BONUS TIMER ────────────────────── */
+function scheduleBonusTimer(){
+  if(bonusTimer) clearTimeout(bonusTimer);
+  const avail = ALL_MISSIONS.filter(m=>m.isBonus&&!activeBonusIds.has(m.id));
+  if(!avail.length||!isHost) return;
+  const delay = (20+Math.random()*25)*60000;
+  bonusTimer = setTimeout(async()=>{
+    const next = avail[Math.floor(Math.random()*avail.length)];
+    await update(ref(db,`games/${currentGame}/activeBonuses`),{[next.id]:Date.now()});
+    scheduleBonusTimer();
+  }, delay);
+}
+
+async function triggerBonus(){
+  const avail = ALL_MISSIONS.filter(m=>m.isBonus&&!activeBonusIds.has(m.id));
+  if(!avail.length){ alert('Geen bonusopdrachten meer.'); return; }
+  const next = avail[Math.floor(Math.random()*avail.length)];
+  await update(ref(db,`games/${currentGame}/activeBonuses`),{[next.id]:Date.now()});
+}
+
+function showBonusToast(){
+  const t = document.getElementById('bonus-toast');
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),4000);
+}
+
+/* ──────────────────── RENDER OPDRACHTEN ────────────────────── */
+function scheduleRender(){
+  if(renderPending) return;
+  renderPending=true;
+  requestAnimationFrame(()=>{ renderPending=false; lastRender=Date.now(); renderMissions(); });
+}
+
+function renderMissions(){
+  const list = document.getElementById('missions-list'); if(!list) return;
+  const mins = elapsedMin();
+
+  // Actieve + vergrendelde preview
+  const all = [...activeMissions];
+  ALL_MISSIONS.filter(m=>!m.isBonus&&mins<m.unlockAfter&&!activeMissions.find(x=>x.id===m.id))
+    .forEach(m=>all.push({...m,_preview:true}));
+
+  const sorted = all.sort((a,b)=>{
+    if(a._preview&&!b._preview) return 1;
+    if(!a._preview&&b._preview) return -1;
+    const da = myLat?distM(myLat,myLng,a.lat,a.lng):9999;
+    const db2= myLat?distM(myLat,myLng,b.lat,b.lng):9999;
+    return da-db2;
+  });
+
+  sorted.forEach((m,idx)=>{
+    const st = teamMissionState[m.id];
+    const locked = !!m._preview;
+    const distRaw = myLat?distM(myLat,myLng,m.lat,m.lng):null;
+    const dist = distRaw!==null ? Math.round(distRaw/10)*10 : null;
+    const nearby = !locked&&!st&&dist!==null&&dist<=SETTINGS.gpsRadius;
+
+    let div = list.querySelector(`[data-m="${m.id}"]`);
+    if(!div){
+      div = document.createElement('div');
+      div.setAttribute('data-m',m.id);
+      div.innerHTML =
+        '<div class="m-icon"></div>' +
+        '<div class="m-info"><div class="m-name"></div><div class="m-dist"></div>' +
+        (locked?'<div class="unlock-bar"><div class="unlock-fill"></div></div>':'')+
+        '</div><div class="m-pts"></div>';
+      div.addEventListener('click',()=>{
+        if(st||locked) return;
+        closePanel();
+        onMarkerTap(m.id);
+      });
+      list.appendChild(div);
+    }
+    if(list.children[idx]!==div) list.insertBefore(div,list.children[idx]||null);
+
+    const iconEl = div.querySelector('.m-icon');
+    const nameEl = div.querySelector('.m-name');
+    const distEl = div.querySelector('.m-dist');
+    const ptsEl  = div.querySelector('.m-pts');
+
+    const newIcon  = st==='done'?'✅':st==='failed'?'❌':locked?'🔒':m.icon;
+    const newName  = m.name;
+    const newDist  = locked ? `🔒 Na ${m.unlockAfter} min`
+                   : st==='done'?'Voltooid ✓'
+                   : st==='failed'?'Mislukt — gesloten'
+                   : dist!==null?(nearby?'🟢 Binnen bereik — tik om te openen':'📍 '+dist+'m')
+                   : 'Locatie ophalen...';
+    const newPts   = st==='done'?'✓':st==='failed'?'−pts':'+'+m.points+(m.isBonus?'!':'');
+    const newClass = 'mission-item'
+      +(nearby?' nearby':'')+(st==='done'?' done':'')+(st==='failed'?' failed':'')
+      +(locked?' locked':'')+(m.isBonus&&!st?' bonus':'');
+
+    if(iconEl.textContent!==newIcon) iconEl.textContent=newIcon;
+    if(nameEl.textContent!==newName) nameEl.textContent=newName;
+    if(distEl.textContent!==newDist) distEl.textContent=newDist;
+    if(ptsEl.textContent !==newPts)  ptsEl.textContent =newPts;
+    if(div.className     !==newClass) div.className    =newClass;
+    distEl.classList.toggle('close',nearby);
+    ptsEl.classList.toggle('bonus-pts', !!(m.isBonus&&!st));
+    ptsEl.classList.toggle('failed-pts',st==='failed');
+
+    if(locked){
+      const fill=div.querySelector('.unlock-fill');
+      if(fill) fill.style.width=Math.min(100,(mins/m.unlockAfter)*100)+'%';
+    }
+  });
+
+  // Verwijder verouderde items
+  list.querySelectorAll('[data-m]').forEach(el=>{
+    if(!sorted.find(m=>m.id===el.dataset.m)) el.remove();
+  });
+}
+
+/* ──────────────────── POPUP ────────────────────── */
+function openMission(mId){
+  const m = activeMissions.find(x=>x.id===mId); if(!m) return;
+  window._activeMission = m;
+  document.getElementById('popup-type').textContent = m.type;
+  const pEl = document.getElementById('popup-pts');
+  pEl.textContent = '+'+m.points+' pts';
+  pEl.className = 'popup-pts'+(m.isBonus?' bonus':'');
+  document.getElementById('popup-q').textContent = m.question;
+  const opts = document.getElementById('popup-opts'); opts.innerHTML='';
+  m.options.forEach((opt,i)=>{
+    const btn = document.createElement('button'); btn.className='popup-opt';
+    btn.textContent = String.fromCharCode(65+i)+'. '+opt;
+    btn.onclick = ()=>submitAnswer(i);
+    opts.appendChild(btn);
+  });
+  document.getElementById('mission-popup').classList.add('open');
+}
+
+async function submitAnswer(index){
+  const m = window._activeMission; if(!m) return;
+  document.querySelectorAll('.popup-opt').forEach(b=>b.onclick=null);
+
+  const scorSnap = await get(ref(db,`games/${currentGame}/teams/${currentTeam}/score`));
+  const curScore = scorSnap.exists()?scorSnap.val():0;
+
+  const resSnap = await get(ref(db,`games/${currentGame}/missionResults/${m.id}`));
+  const results = resSnap.exists()?resSnap.val():{};
+  const failCount    = Object.values(results).filter(r=>r.result==='failed').length;
+  const successCount = Object.values(results).filter(r=>r.result==='success').length;
+  const earned  = Math.max(Math.round(m.points + failCount*SETTINGS.failBonus - successCount*SETTINGS.pointDeduct), 50);
+  const penalty = Math.round(m.points * (SETTINGS.penaltyPct/100));
+
+  const opts = document.querySelectorAll('.popup-opt');
+  if(index===m.answer){
+    opts[index].classList.add('correct');
+    await update(ref(db,`games/${currentGame}/teams/${currentTeam}`),{score:curScore+earned});
+    await update(ref(db,`games/${currentGame}/missionResults/${m.id}`),{[currentTeam]:{result:'success',points:earned,ts:Date.now()}});
+    await update(ref(db,`games/${currentGame}/teamMissions/${currentTeam}`),{[m.id]:'done'});
+    teamMissionState[m.id]='done';
+    updateMarkerStates(); scheduleRender();
+    setTimeout(()=>{ closePopup(); openPanel('panel-score'); }, 1300);
+  } else {
+    opts[index].classList.add('wrong'); opts[m.answer].classList.add('correct');
+    await update(ref(db,`games/${currentGame}/teams/${currentTeam}`),{score:Math.max(0,curScore-penalty)});
+    await update(ref(db,`games/${currentGame}/missionResults/${m.id}`),{[currentTeam]:{result:'failed',penalty,ts:Date.now()}});
+    await update(ref(db,`games/${currentGame}/teamMissions/${currentTeam}`),{[m.id]:'failed'});
+    teamMissionState[m.id]='failed';
+    updateMarkerStates(); scheduleRender();
+    setTimeout(()=>closePopup(), 2200);
   }
+}
+
+function closePopup(){ document.getElementById('mission-popup').classList.remove('open'); window._activeMission=null; }
+
+/* ──────────────────── SCOREBORD ────────────────────── */
+function updateScoreboard(teams){
+  const sorted = [...teams].sort((a,b)=>b.score-a.score);
+  const board = document.getElementById('scoreboard'); if(!board) return;
+
+  sorted.forEach((t,i)=>{
+    let row = board.querySelector(`[data-t="${CSS.escape(t.name)}"]`);
+    if(!row){
+      row=document.createElement('div'); row.setAttribute('data-t',t.name);
+      row.innerHTML=`<div class="s-rank"></div><div class="s-name">${t.name}${t.name===currentTeam?'<span class="s-me">← jij</span>':''}</div><div class="s-pts"></div>`;
+      board.appendChild(row);
+    }
+    if(board.children[i]!==row) board.insertBefore(row,board.children[i]||null);
+    const rEl=row.querySelector('.s-rank'), pEl=row.querySelector('.s-pts');
+    const newR=String(i+1), newP=t.score+' pts', newC='score-row'+(t.name===currentTeam?' me':'');
+    if(rEl.textContent!==newR) rEl.textContent=newR;
+    if(pEl.textContent!==newP) pEl.textContent=newP;
+    if(row.className  !==newC) row.className  =newC;
+    rEl.className='s-rank'+(i===0?' gold':'');
+    if(t.name===currentTeam){
+      document.getElementById('pill-rank').textContent=String(i+1);
+      document.getElementById('pill-name').textContent=t.name;
+      document.getElementById('pill-pts').textContent=t.score+' pts';
+      document.getElementById('info-team-pts').textContent=t.score+' pts';
+    }
+  });
+  board.querySelectorAll('[data-t]').forEach(row=>{ if(!sorted.find(t=>t.name===row.dataset.t)) row.remove(); });
+}
+
+/* ──────────────────── TIMER ────────────────────── */
+function startTimer(startedAt){
+  if(timerInterval) clearInterval(timerInterval);
+  let prevMin=-1;
+  timerInterval = setInterval(()=>{
+    const e = Math.floor((Date.now()-startedAt)/1000);
+    const mins = Math.floor(e/60);
+    const secs = e%60;
+    // Countdown tonen in laatste 5 minuten
+    const remaining = SETTINGS.gameDuration*60 - e;
+    if(remaining <= 300 && remaining > 0){
+      document.getElementById('game-timer').textContent =
+        '⚠ '+String(Math.floor(remaining/60)).padStart(2,'0')+':'+String(remaining%60).padStart(2,'0');
+      document.getElementById('game-timer').style.color = '#FF6B6B';
+    } else {
+      document.getElementById('game-timer').textContent =
+        String(mins).padStart(2,'0')+':'+String(secs).padStart(2,'0');
+      document.getElementById('game-timer').style.color = '';
+    }
+    // Auto-stop
+    if(remaining <= 0 && currentGame){
+      clearInterval(timerInterval);
+      update(ref(db,`games/${currentGame}`),{status:'ended',endedAt:Date.now()});
+      return;
+    }
+    if(mins!==prevMin){ prevMin=mins; updateMarkerStates(); scheduleRender(); }
+  },1000);
+}
+
+/* ──────────────────── EINDSPEL ────────────────────── */
+async function endGame(){
+  if(!isHost) return;
+  await update(ref(db,`games/${currentGame}`),{status:'ended',endedAt:Date.now()});
+}
+
+function showEndScreen(data){
+  if(timerInterval) clearInterval(timerInterval);
+  if(bonusTimer) clearTimeout(bonusTimer);
+  const teams = data.teams ? Object.values(data.teams).sort((a,b)=>b.score-a.score) : [];
+  const medals = ['gold','silver','bronze'];
+  const rows = document.getElementById('end-rows'); rows.innerHTML='';
+  teams.forEach((t,i)=>{
+    const div=document.createElement('div'); div.className='end-row';
+    div.innerHTML=`<div class="end-rank ${medals[i]||''}">${i+1}</div><div class="end-name">${t.name}</div><div class="end-pts">${t.score} pts</div>`;
+    rows.appendChild(div);
+  });
+  showView('view-end');
+}
+
+function goToStart(){
+  cleanup();
+  showView('view-start');
+}
+
+function cleanup(){
+  if(timerInterval) clearInterval(timerInterval);
+  if(unsubGame) unsubGame();
+  if(bonusTimer) clearTimeout(bonusTimer);
+  if(map){ map.remove(); map=null; myMarker=null; teamMarkers={}; missionMarkers={}; }
+  currentGame=null; currentTeam=null; isHost=false; gameStartedAt=null;
+  activeMissions=[]; activeBonusIds=new Set(); teamMissionState={};
+  document.getElementById('join-name').value='';
+  document.getElementById('join-code').value='';
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('open'));
+}
+
+async function leaveGame(){
+  if(currentGame&&currentTeam){
+    if(isHost) await remove(ref(db,`games/${currentGame}`));
+    else await remove(ref(db,`games/${currentGame}/teams/${currentTeam}`));
+  }
+  cleanup();
+  showView('view-start');
+}
+
+/* ──────────────────── TESTMODUS ────────────────────── */
+async function testMode(){
+  await loadConfig();
+  const code = genCode();
+  currentGame=code; currentTeam='Mijn Team'; isHost=true; gameStartedAt=Date.now();
+  activeMissions = ALL_MISSIONS.filter(m=>!m.isBonus);
+
+  await set(ref(db,`games/${code}`),{
+    status:'started', host:'Mijn Team', createdAt:Date.now(), startedAt:Date.now(),
+    teams:{
+      'Mijn Team': {name:'Mijn Team',score:0,isHost:true,joinedAt:Date.now()},
+      'Team Rood':  {name:'Team Rood',score:120,isHost:false,joinedAt:Date.now(),lat:52.0920,lng:5.1235,lastSeen:Date.now()-65000},
+      'Team Blauw': {name:'Team Blauw',score:75,isHost:false,joinedAt:Date.now(),lat:52.0888,lng:5.1190,lastSeen:Date.now()-65000},
+    }
+  });
+
+  showView('view-game');
+  document.getElementById('info-team-name').textContent='Mijn Team';
+  document.getElementById('pill-name').textContent='Mijn Team';
+  document.getElementById('host-box').style.display='block';
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    initMap(); startTimer(Date.now()); startGPS();
+    scheduleBonusTimer(); scheduleRender();
+  }));
+
+  // Nep-teams bewegen
+  setInterval(async()=>{
+    await update(ref(db,`games/${code}/teams/Team Rood`), {lat:52.0920+(Math.random()-.5)*.004,lng:5.1235+(Math.random()-.5)*.004,lastSeen:Date.now()-65000});
+    await update(ref(db,`games/${code}/teams/Team Blauw`),{lat:52.0888+(Math.random()-.5)*.004,lng:5.1190+(Math.random()-.5)*.004,lastSeen:Date.now()-65000});
+  },15000);
+
+  unsubGame = onValue(ref(db,`games/${code}`),snap=>{
+    if(!snap.exists()) return;
+    const d=snap.val();
+    if(d.teams){ updateScoreboard(Object.values(d.teams)); updateTeamMarkersDelayed(d.teams); }
+    if(d.activeBonuses){
+      let changed=false;
+      Object.keys(d.activeBonuses).forEach(id=>{
+        if(!activeBonusIds.has(id)){ activeBonusIds.add(id); const bm=ALL_MISSIONS.find(m=>m.id===id); if(bm&&!activeMissions.find(m=>m.id===id)){activeMissions.push(bm);changed=true;} }
+      });
+      if(changed){ showBonusToast(); addMissionMarkers(); scheduleRender(); }
+    }
+    if(d.status==='ended') showEndScreen(d);
+  });
+
+  onValue(ref(db,`games/${code}/teamMissions/Mijn Team`),snap=>{
+    if(!snap.exists()) return;
+    const prev=JSON.stringify(teamMissionState);
+    Object.assign(teamMissionState,snap.val());
+    if(JSON.stringify(teamMissionState)!==prev){ updateMarkerStates(); scheduleRender(); }
+  });
+}
 </script>
 </body>
 </html>
