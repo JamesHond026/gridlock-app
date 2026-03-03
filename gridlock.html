@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gridlock — dé city battle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --mint: #3DFFA0;
+    --mint-dim: #1adb7a;
+    --black: #080808;
+    --dark: #0f0f0f;
+    --card: #141414;
+    --border: #1e1e1e;
+    --text: #c8c8c8;
+    --white: #f0f0f0;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--black);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    overflow-x: hidden;
+    cursor: none;
+  }
+
+  /* CUSTOM CURSOR */
+  .cursor {
+    width: 12px; height: 12px;
+    background: var(--mint);
+    border-radius: 50%;
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    transform: translate(-50%, -50%);
+    transition: transform 0.1s ease, width 0.2s ease, height 0.2s ease;
+    mix-blend-mode: screen;
+  }
+  .cursor-ring {
+    width: 36px; height: 36px;
+    border: 1px solid rgba(61,255,160,0.4);
+    border-radius: 50%;
+    position: fixed;
+    pointer-events: none;
+    z-index: 9998;
+    transform: translate(-50%, -50%);
+    transition: transform 0.15s ease, width 0.3s ease, height 0.3s ease, border-color 0.3s;
+  }
+  body:has(a:hover) .cursor-ring,
+  body:has(button:hover) .cursor-ring {
+    width: 56px; height: 56px;
+    border-color: var(--mint);
+  }
+
+  /* NOISE OVERLAY */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+    opacity: 0.03;
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* NAV */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.2rem 3rem;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.3s, background 0.3s;
+  }
+  nav.scrolled {
+    background: rgba(8,8,8,0.92);
+    border-color: var(--border);
+    backdrop-filter: blur(12px);
+  }
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    color: var(--mint);
+    letter-spacing: 0.05em;
+    text-decoration: none;
+    line-height: 1;
+  }
+  .logo span {
+    display: block;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.55rem;
+    font-weight: 300;
+    letter-spacing: 0.35em;
+    color: rgba(61,255,160,0.6);
+    text-transform: uppercase;
+    margin-top: -2px;
+  }
+  .nav-links {
+    display: flex; gap: 2.5rem; list-style: none;
+    font-size: 0.8rem; letter-spacing: 0.12em; text-transform: uppercase;
+    font-family: 'Space Mono', monospace;
+  }
+  .nav-links a {
+    color: var(--text); text-decoration: none;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--mint); }
+  .nav-cta {
+    background: var(--mint); color: var(--black);
+    padding: 0.6rem 1.5rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem; letter-spacing: 0.08em;
+    text-decoration: none; font-weight: 700;
+    transition: background 0.2s, transform 0.2s;
+    text-transform: uppercase;
+  }
+  .nav-cta:hover { background: var(--white); transform: translateY(-1px); }
+
+  /* HERO */
+  .hero {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-left {
+    display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 8rem 3rem 5rem;
+    position: relative; z-index: 2;
+  }
+  .hero-eyebrow {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 0.25em;
+    color: var(--mint); text-transform: uppercase;
+    margin-bottom: 1.5rem;
+    opacity: 0; animation: fadeUp 0.8s 0.2s forwards;
+    display: flex; align-items: center; gap: 1rem;
+  }
+  .hero-eyebrow::before {
+    content: ''; display: block;
+    width: 40px; height: 1px;
+    background: var(--mint);
+  }
+  .hero-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(5rem, 10vw, 10rem);
+    line-height: 0.9;
+    color: var(--white);
+    letter-spacing: -0.01em;
+    opacity: 0; animation: fadeUp 0.8s 0.4s forwards;
+  }
+  .hero-title .accent { color: var(--mint); }
+  .hero-sub {
+    font-size: 1.1rem; font-weight: 300;
+    color: var(--text); max-width: 440px;
+    margin-top: 2rem;
+    opacity: 0; animation: fadeUp 0.8s 0.6s forwards;
+    line-height: 1.7;
+  }
+  .hero-actions {
+    display: flex; gap: 1rem; margin-top: 3rem; flex-wrap: wrap;
+    opacity: 0; animation: fadeUp 0.8s 0.8s forwards;
+  }
+  .btn-primary {
+    background: var(--mint); color: var(--black);
+    padding: 1rem 2.5rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    text-decoration: none; border: none; cursor: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: inline-flex; align-items: center; gap: 0.5rem;
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(61,255,160,0.3);
+  }
+  .btn-ghost {
+    background: transparent; color: var(--white);
+    padding: 1rem 2rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase;
+    text-decoration: none; border: 1px solid var(--border); cursor: none;
+    transition: border-color 0.2s, color 0.2s;
+    display: inline-flex; align-items: center; gap: 0.5rem;
+  }
+  .btn-ghost:hover { border-color: var(--mint); color: var(--mint); }
+
+  .hero-right {
+    position: relative; overflow: hidden;
+  }
+  .hero-map {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 30% 40%, rgba(61,255,160,0.08) 0%, transparent 60%),
+      radial-gradient(circle at 70% 70%, rgba(61,255,160,0.04) 0%, transparent 50%);
+  }
+  /* Animated city grid */
+  .city-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(61,255,160,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(61,255,160,0.06) 1px, transparent 1px);
+    background-size: 60px 60px;
+    animation: gridScroll 20s linear infinite;
+  }
+  @keyframes gridScroll {
+    0% { background-position: 0 0; }
+    100% { background-position: 60px 60px; }
+  }
+  .city-dots {
+    position: absolute; inset: 0;
+  }
+  .dot {
+    position: absolute;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--mint);
+    box-shadow: 0 0 12px var(--mint), 0 0 24px rgba(61,255,160,0.4);
+    animation: pulse 3s ease-in-out infinite;
+  }
+  .dot::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 1px solid rgba(61,255,160,0.3);
+    animation: ripple 3s ease-out infinite;
+  }
+  @keyframes ripple {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(3); opacity: 0; }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .connect-line {
+    position: absolute;
+    background: linear-gradient(90deg, transparent, rgba(61,255,160,0.3), transparent);
+    height: 1px;
+    animation: lineFlash 4s ease-in-out infinite;
+  }
+  @keyframes lineFlash {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; }
+  }
+  .hero-stats {
+    position: absolute; bottom: 3rem; right: 3rem;
+    display: flex; flex-direction: column; gap: 1.5rem;
+    opacity: 0; animation: fadeUp 1s 1s forwards;
+  }
+  .stat {
+    text-align: right;
+  }
+  .stat-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.5rem; line-height: 1;
+    color: var(--white);
+  }
+  .stat-num span { color: var(--mint); }
+  .stat-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--text);
+  }
+
+  /* TICKER */
+  .ticker {
+    background: var(--mint);
+    padding: 0.75rem 0;
+    overflow: hidden;
+    position: relative;
+  }
+  .ticker-track {
+    display: flex; gap: 0;
+    animation: tickerRoll 20s linear infinite;
+    white-space: nowrap;
+  }
+  .ticker-item {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem; font-weight: 700;
+    color: var(--black); letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0 3rem;
+    flex-shrink: 0;
+  }
+  .ticker-dot {
+    color: rgba(0,0,0,0.3);
+  }
+  @keyframes tickerRoll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  /* SECTION BASE */
+  section { padding: 7rem 3rem; }
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem; letter-spacing: 0.3em;
+    text-transform: uppercase; color: var(--mint);
+    margin-bottom: 1rem;
+    display: flex; align-items: center; gap: 1rem;
+  }
+  .section-label::before {
+    content: ''; display: block;
+    width: 24px; height: 1px; background: var(--mint);
+  }
+
+  /* HOW IT WORKS */
+  .how { background: var(--dark); }
+  .how-header {
+    max-width: 700px; margin-bottom: 5rem;
+  }
+  .how-header h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(3rem, 6vw, 5.5rem);
+    color: var(--white); line-height: 0.95;
+    margin-bottom: 1.5rem;
+  }
+  .how-header p {
+    font-size: 1.05rem; font-weight: 300; color: var(--text);
+    max-width: 520px; line-height: 1.8;
+  }
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    border: 1px solid var(--border);
+  }
+  .step {
+    padding: 3rem 2rem;
+    border-right: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+    transition: background 0.3s;
+  }
+  .step:last-child { border-right: none; }
+  .step::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(61,255,160,0.05) 0%, transparent 60%);
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .step:hover { background: rgba(61,255,160,0.02); }
+  .step:hover::before { opacity: 1; }
+  .step-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 5rem; line-height: 1;
+    color: rgba(61,255,160,0.12);
+    position: absolute; top: 1rem; right: 1.5rem;
+    transition: color 0.3s;
+  }
+  .step:hover .step-num { color: rgba(61,255,160,0.25); }
+  .step-icon {
+    font-size: 2rem; margin-bottom: 1.5rem;
+  }
+  .step h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem; letter-spacing: 0.03em;
+    color: var(--white); margin-bottom: 0.75rem;
+  }
+  .step p {
+    font-size: 0.9rem; color: var(--text);
+    line-height: 1.7; font-weight: 300;
+  }
+
+  /* MECHANICS */
+  .mechanics {
+    background: var(--black);
+  }
+  .mechanics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5rem;
+    align-items: center;
+  }
+  .mechanics-left h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(3rem, 5vw, 5rem);
+    color: var(--white); line-height: 0.95;
+    margin-bottom: 2rem;
+  }
+  .mechanics-left p {
+    font-size: 1rem; font-weight: 300;
+    color: var(--text); line-height: 1.8;
+    margin-bottom: 2.5rem;
+  }
+  .feature-list {
+    display: flex; flex-direction: column; gap: 1rem;
+    list-style: none;
+  }
+  .feature-list li {
+    display: flex; align-items: flex-start; gap: 1rem;
+    font-size: 0.95rem; color: var(--text);
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--border);
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .feature-list li:hover {
+    border-color: rgba(61,255,160,0.3);
+    background: rgba(61,255,160,0.03);
+  }
+  .feature-list li .icon {
+    color: var(--mint); font-size: 1.1rem; margin-top: 1px; flex-shrink: 0;
+  }
+  .feature-list li strong {
+    display: block; color: var(--white);
+    font-size: 0.85rem; margin-bottom: 0.2rem;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.05em; font-weight: 700;
+  }
+  .feature-list li span {
+    font-size: 0.85rem; font-weight: 300;
+  }
+
+  /* LEADERBOARD MOCKUP */
+  .leaderboard-mock {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    font-family: 'Space Mono', monospace;
+  }
+  .mock-header {
+    background: var(--mint);
+    padding: 0.75rem 1.5rem;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .mock-header span {
+    font-size: 0.7rem; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--black);
+  }
+  .mock-header .live-dot {
+    display: flex; align-items: center; gap: 0.4rem;
+    font-size: 0.65rem; color: var(--black);
+  }
+  .live-dot::before {
+    content: '';
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--black);
+    animation: blink 1.2s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  .mock-body { padding: 1rem 0; }
+  .mock-row {
+    display: flex; align-items: center;
+    padding: 0.75rem 1.5rem;
+    gap: 1rem;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.2s;
+    animation: rowFade 0.5s ease forwards;
+    opacity: 0;
+  }
+  .mock-row:nth-child(1) { animation-delay: 0.1s; }
+  .mock-row:nth-child(2) { animation-delay: 0.2s; }
+  .mock-row:nth-child(3) { animation-delay: 0.3s; }
+  .mock-row:nth-child(4) { animation-delay: 0.4s; }
+  @keyframes rowFade { to { opacity: 1; } }
+  .mock-row:last-child { border-bottom: none; }
+  .mock-row:hover { background: rgba(61,255,160,0.04); }
+  .mock-rank {
+    font-size: 0.7rem; color: var(--text); width: 20px;
+  }
+  .mock-rank.first { color: var(--mint); }
+  .mock-team {
+    flex: 1; font-size: 0.8rem; color: var(--white);
+    letter-spacing: 0.05em;
+  }
+  .mock-pts {
+    font-size: 0.85rem; font-weight: 700; color: var(--mint);
+  }
+  .mock-bar-wrap {
+    width: 80px; height: 4px;
+    background: var(--border); border-radius: 2px;
+  }
+  .mock-bar {
+    height: 100%; background: var(--mint); border-radius: 2px;
+    transition: width 1s ease;
+  }
+  .mock-footer {
+    padding: 1rem 1.5rem;
+    display: flex; justify-content: space-between;
+    font-size: 0.65rem; color: rgba(255,255,255,0.3);
+    border-top: 1px solid var(--border);
+  }
+
+  /* PUZZLES */
+  .puzzles { background: var(--dark); }
+  .puzzles h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(3rem, 6vw, 5rem);
+    color: var(--white); line-height: 0.95;
+    margin-bottom: 1rem;
+  }
+  .puzzles .subtitle {
+    font-size: 1rem; font-weight: 300; color: var(--text);
+    max-width: 500px; margin-bottom: 4rem; line-height: 1.8;
+  }
+  .puzzle-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+  .puzzle-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 2rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s, border-color 0.3s;
+  }
+  .puzzle-card::after {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--mint);
+    transform: scaleX(0); transform-origin: left;
+    transition: transform 0.3s;
+  }
+  .puzzle-card:hover { transform: translateY(-4px); border-color: rgba(61,255,160,0.2); }
+  .puzzle-card:hover::after { transform: scaleX(1); }
+  .puzzle-emoji { font-size: 2.5rem; margin-bottom: 1.5rem; }
+  .puzzle-card h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.5rem; color: var(--white);
+    letter-spacing: 0.03em; margin-bottom: 0.75rem;
+  }
+  .puzzle-card p {
+    font-size: 0.88rem; color: var(--text);
+    font-weight: 300; line-height: 1.7;
+  }
+  .puzzle-pts {
+    position: absolute; top: 1.5rem; right: 1.5rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem; color: var(--mint);
+    letter-spacing: 0.1em;
+    background: rgba(61,255,160,0.1);
+    padding: 0.2rem 0.6rem;
+  }
+
+  /* PRICING */
+  .pricing { background: var(--black); }
+  .pricing h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(3rem, 6vw, 5rem);
+    color: var(--white); line-height: 0.95;
+    margin-bottom: 1rem;
+  }
+  .pricing .subtitle {
+    font-size: 1rem; font-weight: 300; color: var(--text);
+    max-width: 500px; margin-bottom: 4rem;
+  }
+  .price-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+  .price-card {
+    background: var(--dark);
+    padding: 2.5rem 2rem;
+    position: relative;
+    transition: background 0.3s;
+  }
+  .price-card.featured {
+    background: rgba(61,255,160,0.05);
+    border-top: 2px solid var(--mint);
+  }
+  .price-card:hover { background: rgba(61,255,160,0.03); }
+  .price-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--black); background: var(--mint);
+    padding: 0.2rem 0.6rem;
+    display: inline-block; margin-bottom: 1.5rem;
+  }
+  .price-badge.ghost {
+    background: transparent; color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .price-card h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem; color: var(--white);
+    letter-spacing: 0.05em; margin-bottom: 0.5rem;
+  }
+  .price-amount {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3.5rem; color: var(--white); line-height: 1;
+    margin: 1rem 0;
+  }
+  .price-amount span {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem; font-weight: 300; color: var(--text);
+  }
+  .price-amount.mint { color: var(--mint); }
+  .price-card ul {
+    list-style: none; margin-top: 1.5rem;
+    display: flex; flex-direction: column; gap: 0.6rem;
+  }
+  .price-card ul li {
+    font-size: 0.85rem; color: var(--text); font-weight: 300;
+    display: flex; gap: 0.6rem; align-items: flex-start;
+  }
+  .price-card ul li::before {
+    content: '→'; color: var(--mint); font-size: 0.8rem; flex-shrink: 0;
+  }
+
+  /* PHASES */
+  .phases { background: var(--dark); }
+  .phases h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(3rem, 6vw, 5rem);
+    color: var(--white); line-height: 0.95;
+    margin-bottom: 4rem;
+  }
+  .timeline {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    position: relative;
+    gap: 0;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute; top: 2.5rem; left: 10%; right: 10%;
+    height: 1px; background: var(--border);
+  }
+  .phase {
+    padding: 0 1.5rem;
+    position: relative;
+  }
+  .phase-dot {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--card); border: 2px solid var(--border);
+    margin-bottom: 2rem; position: relative; z-index: 1;
+    transition: border-color 0.3s, background 0.3s;
+  }
+  .phase.active .phase-dot {
+    background: var(--mint);
+    border-color: var(--mint);
+    box-shadow: 0 0 16px rgba(61,255,160,0.5);
+  }
+  .phase-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem; letter-spacing: 0.2em;
+    color: var(--mint); text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .phase h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem; color: var(--white);
+    letter-spacing: 0.03em; margin-bottom: 0.75rem;
+  }
+  .phase p {
+    font-size: 0.85rem; color: var(--text); font-weight: 300;
+    line-height: 1.7;
+  }
+  .phase-tag {
+    display: inline-block; margin-top: 1rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem; letter-spacing: 0.12em;
+    padding: 0.25rem 0.75rem;
+    text-transform: uppercase;
+  }
+  .phase-tag.now { background: rgba(61,255,160,0.15); color: var(--mint); }
+  .phase-tag.soon { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+
+  /* CTA */
+  .cta-section {
+    background: var(--mint);
+    padding: 8rem 3rem;
+    text-align: center;
+    position: relative; overflow: hidden;
+  }
+  .cta-section::before {
+    content: 'GRIDLOCK';
+    position: absolute;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20vw; color: rgba(0,0,0,0.06);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    white-space: nowrap; pointer-events: none;
+    letter-spacing: -0.02em;
+  }
+  .cta-section h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(3rem, 7vw, 7rem);
+    color: var(--black); line-height: 0.9;
+    margin-bottom: 1.5rem; position: relative;
+  }
+  .cta-section p {
+    font-size: 1.1rem; color: rgba(0,0,0,0.65);
+    max-width: 500px; margin: 0 auto 3rem;
+    font-weight: 300; line-height: 1.7; position: relative;
+  }
+  .btn-dark {
+    background: var(--black); color: var(--mint);
+    padding: 1.2rem 3rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.85rem; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    text-decoration: none; display: inline-block;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+  }
+  .btn-dark:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+  }
+
+  /* FOOTER */
+  footer {
+    background: var(--black);
+    border-top: 1px solid var(--border);
+    padding: 3rem;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 1.5rem;
+  }
+  .footer-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.8rem; color: var(--mint); letter-spacing: 0.05em;
+  }
+  .footer-logo span {
+    display: block;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.5rem; letter-spacing: 0.3em;
+    color: rgba(61,255,160,0.5); text-transform: uppercase;
+  }
+  .footer-links {
+    display: flex; gap: 2rem; list-style: none;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .footer-links a {
+    color: var(--text); text-decoration: none;
+    transition: color 0.2s;
+  }
+  .footer-links a:hover { color: var(--mint); }
+  .footer-copy {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem; color: rgba(255,255,255,0.2);
+    letter-spacing: 0.08em;
+  }
+
+  /* PHONE MOCKUP */
+  .phone-mockup {
+    position: relative;
+    display: flex; justify-content: center;
+  }
+  .phone-frame {
+    width: 240px;
+    background: #0a0a0a;
+    border-radius: 36px;
+    border: 2px solid #2a2a2a;
+    padding: 12px;
+    position: relative;
+    box-shadow:
+      0 0 0 1px #111,
+      inset 0 0 0 1px #1a1a1a,
+      0 30px 80px rgba(0,0,0,0.8);
+  }
+  .phone-notch {
+    width: 70px; height: 22px;
+    background: #0a0a0a;
+    border-radius: 0 0 16px 16px;
+    margin: 0 auto 6px;
+    position: relative; z-index: 10;
+    border: 1px solid #1a1a1a; border-top: none;
+  }
+  .phone-screen {
+    background: #111;
+    border-radius: 24px;
+    overflow: hidden;
+    height: 480px;
+    display: flex; flex-direction: column;
+  }
+  .phone-glow {
+    position: absolute;
+    width: 180px; height: 180px;
+    background: radial-gradient(circle, rgba(61,255,160,0.2) 0%, transparent 70%);
+    bottom: -40px; left: 50%; transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  /* App UI inside phone */
+  .app-statusbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 16px 2px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem; color: rgba(255,255,255,0.6);
+  }
+  .app-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 14px 8px;
+    border-bottom: 1px solid #1e1e1e;
+  }
+  .app-logo-sm {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem; color: var(--mint); letter-spacing: 0.05em;
+  }
+  .app-live-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.5rem; color: var(--mint);
+    background: rgba(61,255,160,0.1);
+    padding: 2px 6px; letter-spacing: 0.1em;
+    animation: blink 1.4s ease-in-out infinite;
+  }
+  .app-map {
+    flex: 1; position: relative; overflow: hidden;
+    background: #0d1a14;
+  }
+  .app-map-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(61,255,160,0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(61,255,160,0.07) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  .app-pin { position: absolute; transform: translate(-50%,-50%); }
+  .app-pin-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--mint);
+    box-shadow: 0 0 10px var(--mint);
+  }
+  .app-pin-dot.locked {
+    background: #444;
+    box-shadow: none;
+  }
+  .app-pin-ring {
+    position: absolute; inset: -5px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(61,255,160,0.5);
+    animation: ripple 2s ease-out infinite;
+  }
+  .player-dot {
+    position: absolute; transform: translate(-50%,-50%);
+  }
+  .player-inner {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: #4af; border: 2px solid white;
+    box-shadow: 0 0 10px #4af;
+  }
+  .player-ring {
+    position: absolute; inset: -4px;
+    border-radius: 50%;
+    border: 1px solid rgba(100,180,255,0.4);
+    animation: ripple 2.5s ease-out infinite;
+  }
+  .radius-circle {
+    position: absolute;
+    width: 70px; height: 70px;
+    border-radius: 50%;
+    border: 1px dashed rgba(61,255,160,0.25);
+    transform: translate(-50%, -50%);
+    background: rgba(61,255,160,0.04);
+  }
+  .map-label {
+    position: absolute;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.45rem; color: rgba(255,255,255,0.3);
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .dist-badge {
+    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+    background: rgba(61,255,160,0.15);
+    border: 1px solid rgba(61,255,160,0.3);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.5rem; color: var(--mint);
+    padding: 4px 10px; white-space: nowrap;
+    letter-spacing: 0.08em;
+  }
+  .mission-card {
+    background: #0f0f0f;
+    border-top: 1px solid #1e1e1e;
+    padding: 10px 14px;
+  }
+  .mission-top {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 6px;
+  }
+  .mission-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.45rem; color: var(--mint);
+    letter-spacing: 0.1em; text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .mission-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.95rem; color: var(--white); letter-spacing: 0.05em;
+  }
+  .mission-pts {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem; color: var(--mint);
+    background: rgba(61,255,160,0.1);
+    padding: 3px 6px;
+  }
+  .mission-text {
+    font-size: 0.6rem; color: var(--text);
+    font-weight: 300; line-height: 1.5; margin-bottom: 8px;
+    font-style: italic;
+  }
+  .mission-input-row {
+    display: flex; gap: 6px; align-items: center;
+  }
+  .mission-input {
+    flex: 1; background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    padding: 5px 10px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem; color: rgba(255,255,255,0.3);
+    letter-spacing: 0.3em; text-align: center;
+  }
+  .mission-submit {
+    background: var(--mint); color: var(--black);
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
+  }
+  .app-bottombar {
+    display: flex; border-top: 1px solid #1a1a1a;
+    background: #0a0a0a;
+    padding: 6px 0 8px;
+  }
+  .app-nav-item {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; gap: 2px;
+    font-size: 1rem;
+    cursor: default;
+  }
+  .app-nav-item span {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.38rem; color: rgba(255,255,255,0.3);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .app-nav-item.active span { color: var(--mint); }
+
+  /* ANIMATIONS */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* SCROLL REVEAL */
+  .reveal {
+    opacity: 0; transform: translateY(30px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+  .reveal.visible {
+    opacity: 1; transform: translateY(0);
+  }
+  .reveal-delay-1 { transition-delay: 0.1s; }
+  .reveal-delay-2 { transition-delay: 0.2s; }
+  .reveal-delay-3 { transition-delay: 0.3s; }
+  .reveal-delay-4 { transition-delay: 0.4s; }
+</style>
+</head>
+<body>
+
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+
+<!-- NAV -->
+<nav id="nav">
+  <a href="#" class="logo">
+    Gridlock
+    <span>dé city battle</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#how">Hoe het werkt</a></li>
+    <li><a href="#puzzles">Opdrachten</a></li>
+    <li><a href="#pricing">Prijzen</a></li>
+    <li><a href="#phases">Steden</a></li>
+  </ul>
+  <a href="#cta" class="nav-cta">Speel mee →</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="home">
+  <div class="hero-left">
+    <p class="hero-eyebrow">Live city battle · GPS · Meerdere teams</p>
+    <h1 class="hero-title">
+      Verover<br>
+      de <span class="accent">stad.</span>
+    </h1>
+    <p class="hero-sub">
+      Gridlock is een competitieve city battle waarbij teams tegelijk de stad intrekken, historische puzzels oplossen, en real-time strijden om de toppositie op het leaderboard.
+    </p>
+    <div class="hero-actions">
+      <a href="#how" class="btn-primary">Hoe het werkt →</a>
+      <a href="#cta" class="btn-ghost">Melding je aan</a>
+    </div>
+  </div>
+
+  <div class="hero-right">
+    <div class="hero-map"></div>
+    <div class="city-grid"></div>
+    <div class="city-dots">
+      <div class="dot" style="top:22%;left:30%;animation-delay:0s"></div>
+      <div class="dot" style="top:45%;left:55%;animation-delay:0.8s"></div>
+      <div class="dot" style="top:65%;left:25%;animation-delay:1.6s"></div>
+      <div class="dot" style="top:35%;left:70%;animation-delay:0.4s"></div>
+      <div class="dot" style="top:75%;left:62%;animation-delay:1.2s"></div>
+      <div class="dot" style="top:15%;left:58%;animation-delay:2s"></div>
+      <div class="connect-line" style="top:22%;left:30%;width:200px;transform:rotate(-12deg);animation-delay:1s"></div>
+      <div class="connect-line" style="top:45%;left:25%;width:150px;transform:rotate(25deg);animation-delay:2s"></div>
+    </div>
+    <div class="hero-stats">
+      <div class="stat">
+        <div class="stat-num">2–6 <span>teams</span></div>
+        <div class="stat-label">per battle</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">90 <span>min</span></div>
+        <div class="stat-label">gemiddelde duur</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">€<span>7,50</span></div>
+        <div class="stat-label">per persoon</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TICKER -->
+<div class="ticker">
+  <div class="ticker-track">
+    <span class="ticker-item">Live Leaderboard <span class="ticker-dot">✦</span></span>
+    <span class="ticker-item">GPS Tracking <span class="ticker-dot">✦</span></span>
+    <span class="ticker-item">Historische Puzzels <span class="ticker-dot">✦</span></span>
+    <span class="ticker-item">City Battle <span class="ticker-dot">✦</span></span>
+    <span class="ticker-item">Bonusopdrachten <span class="ticker-dot">✦</span></span>
+    <span class="ticker-item">Arnhem & Utrecht <span class="ticker-dot">✦</span></span>
+    <span class="ticker-item">Live Leaderboard <span class="ticker-dot">✦</span></span>
+    <span class="ticker-item">GPS Tracking <span class="ticker-dot">✦</span></span>
+    <span class="ticker-item">Historische Puzzels <span class="ticker-dot">✦</span></span>
+    <span class="ticker-item">City Battle <span class="ticker-dot">✦</span></span>
+    <span class="ticker-item">Bonusopdrachten <span class="ticker-dot">✦</span></span>
+    <span class="ticker-item">Arnhem & Utrecht <span class="ticker-dot">✦</span></span>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<section class="how" id="how">
+  <div class="how-header reveal">
+    <p class="section-label">Hoe het werkt</p>
+    <h2>Van startschot<br>tot winnaar.</h2>
+    <p>Geen statische wandeling. Geen simpele quiz. Gridlock is een real-time competitie waarbij elke beslissing telt en elke seconde je positie bepaalt.</p>
+  </div>
+  <div class="steps">
+    <div class="step reveal reveal-delay-1">
+      <div class="step-num">01</div>
+      <div class="step-icon">📱</div>
+      <h3>Open de app</h3>
+      <p>Log in met je teamcode, bekijk de interactieve kaart en zie direct waar de eerste opdrachten verschijnen.</p>
+    </div>
+    <div class="step reveal reveal-delay-2">
+      <div class="step-num">02</div>
+      <div class="step-icon">🗺️</div>
+      <h3>Navigeer de stad</h3>
+      <p>Kom binnen 20-30 meter van een locatie om de puzzel te activeren. Andere teams zien je bewegen — strategie telt.</p>
+    </div>
+    <div class="step reveal reveal-delay-3">
+      <div class="step-num">03</div>
+      <div class="step-icon">🧩</div>
+      <h3>Los op, snel</h3>
+      <p>Wie het eerst goed antwoordt pakt de maximale punten. Elk volgend team krijgt minder. Fout antwoord? Strafpunten.</p>
+    </div>
+    <div class="step reveal reveal-delay-4">
+      <div class="step-num">04</div>
+      <div class="step-icon">🏆</div>
+      <h3>Win de battle</h3>
+      <p>Volg het live leaderboard, reageer op onverwachte bonusopdrachten en sprint naar de overwinning als de klok tikt.</p>
+    </div>
+  </div>
+</section>
+
+<!-- MECHANICS -->
+<section class="mechanics" id="mechanics">
+  <div class="mechanics-grid">
+    <div class="mechanics-left reveal">
+      <p class="section-label">Game mechanics</p>
+      <h2>Elk team<br>ziet elkaar.</h2>
+      <p>Gridlock combineert GPS-tracking, een dynamisch puntensysteem en een live leaderboard tot één intense battle-ervaring. Het is niet alleen puzzelen — het is ook tactisch bewegen.</p>
+      <ul class="feature-list">
+        <li>
+          <span class="icon">◉</span>
+          <div>
+            <strong>Live GPS tracking</strong>
+            <span>Zie jouw team én tegenstanders in real-time op de kaart. Met 1 minuut vertraging voor eerlijkheid.</span>
+          </div>
+        </li>
+        <li>
+          <span class="icon">◉</span>
+          <div>
+            <strong>Dynamisch puntensysteem</strong>
+            <span>Hoe meer teams falen bij een opdracht, hoe meer punten die opdracht waard wordt voor de volgende.</span>
+          </div>
+        </li>
+        <li>
+          <span class="icon">◉</span>
+          <div>
+            <strong>Plotse bonusopdrachten</strong>
+            <span>Tijdens het spel verschijnen onverwacht extra opdrachten. Reageer snel voor extra voorsprong.</span>
+          </div>
+        </li>
+        <li>
+          <span class="icon">◉</span>
+          <div>
+            <strong>Straal-activatie</strong>
+            <span>Opdrachten activeer je pas als je fysiek binnen 20-30 meter van de locatie bent. Geen spiekroutes.</span>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <div class="reveal reveal-delay-2" style="display:flex;justify-content:center;align-items:center;">
+      <!-- Phone mockup -->
+      <div class="phone-mockup">
+        <div class="phone-frame">
+          <div class="phone-notch"></div>
+          <div class="phone-screen">
+            <!-- Status bar -->
+            <div class="app-statusbar">
+              <span>9:41</span>
+              <span style="display:flex;gap:4px;align-items:center;">
+                <svg width="12" height="10" viewBox="0 0 12 10" fill="currentColor"><rect x="0" y="4" width="2" height="6" rx="1"/><rect x="3" y="2.5" width="2" height="7.5" rx="1"/><rect x="6" y="1" width="2" height="9" rx="1"/><rect x="9" y="0" width="2" height="10" rx="1"/></svg>
+                🔋
+              </span>
+            </div>
+            <!-- App header -->
+            <div class="app-header">
+              <span class="app-logo-sm">Gridlock</span>
+              <span class="app-live-badge">● LIVE</span>
+            </div>
+            <!-- Map area -->
+            <div class="app-map">
+              <div class="app-map-grid"></div>
+              <!-- Location pins -->
+              <div class="app-pin active" style="top:38%;left:42%">
+                <div class="app-pin-dot"></div>
+                <div class="app-pin-ring"></div>
+              </div>
+              <div class="app-pin" style="top:55%;left:65%">
+                <div class="app-pin-dot locked"></div>
+              </div>
+              <div class="app-pin" style="top:25%;left:70%">
+                <div class="app-pin-dot locked"></div>
+              </div>
+              <!-- Player dot -->
+              <div class="player-dot" style="top:35%;left:38%">
+                <div class="player-inner"></div>
+                <div class="player-ring"></div>
+              </div>
+              <!-- Radius circle -->
+              <div class="radius-circle" style="top:29%;left:31%"></div>
+              <!-- Map label -->
+              <div class="map-label" style="top:15%;left:8%">Arnhem Centrum</div>
+              <!-- Distance badge -->
+              <div class="dist-badge">📍 18m van opdracht</div>
+            </div>
+            <!-- Active mission card -->
+            <div class="mission-card">
+              <div class="mission-top">
+                <div>
+                  <div class="mission-tag">Historisch raadsel</div>
+                  <div class="mission-title">Opdracht #7</div>
+                </div>
+                <div class="mission-pts">+200 pts</div>
+              </div>
+              <p class="mission-text">"Welk jaar staat gegraveerd op de steen bij de hoofdingang van het stadhuis?"</p>
+              <div class="mission-input-row">
+                <div class="mission-input">_ _ _ _</div>
+                <div class="mission-submit">→</div>
+              </div>
+            </div>
+            <!-- Bottom bar -->
+            <div class="app-bottombar">
+              <div class="app-nav-item active">🗺️<span>Kaart</span></div>
+              <div class="app-nav-item">🏆<span>Score</span></div>
+              <div class="app-nav-item">👥<span>Teams</span></div>
+              <div class="app-nav-item">⚡<span>Bonus</span></div>
+            </div>
+          </div>
+        </div>
+        <!-- Glow -->
+        <div class="phone-glow"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PUZZLE TYPES -->
+<section class="puzzles" id="puzzles">
+  <p class="section-label reveal">Opdrachttypes</p>
+  <h2 class="reveal">Geen kinderspel.<br>Echte uitdaging.</h2>
+  <p class="subtitle reveal">Alle opdrachten zijn historisch, cultureel of locatiegebonden. De stad is het speelbord — elk gebouw, elke steen een aanwijzing.</p>
+
+  <div class="puzzle-cards">
+    <div class="puzzle-card reveal reveal-delay-1">
+      <div class="puzzle-pts">+150 PTS</div>
+      <div class="puzzle-emoji">🔢</div>
+      <h3>Cijferraadsels</h3>
+      <p>Afleidend van gedenkstenen, jaartallen en architectonische details. Kijk scherp — het antwoord staat op de muur.</p>
+    </div>
+    <div class="puzzle-card reveal reveal-delay-2">
+      <div class="puzzle-pts">+200 PTS</div>
+      <div class="puzzle-emoji">📸</div>
+      <h3>Fotopuzzels</h3>
+      <p>Zoek een specifiek object in de omgeving en geef het juiste antwoord. Je moet er écht naartoe om het te zien.</p>
+    </div>
+    <div class="puzzle-card reveal reveal-delay-3">
+      <div class="puzzle-pts">+250 PTS</div>
+      <div class="puzzle-emoji">📜</div>
+      <h3>Verborgen Verhalen</h3>
+      <p>Een kort historisch fragment gevolgd door een raadsel. Begrijp de context, win de punten.</p>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing" id="pricing">
+  <p class="section-label reveal">Tarieven</p>
+  <h2 class="reveal">Eerlijk geprijsd,<br>voor iedereen.</h2>
+  <p class="subtitle reveal">Of je nu met vrienden speelt, een teamuitje organiseert of een school­klas meeneemt — er is een passend tarief.</p>
+
+  <div class="price-cards">
+    <div class="price-card reveal reveal-delay-1">
+      <span class="price-badge">Consumenten</span>
+      <h3>Zelf spelen</h3>
+      <div class="price-amount mint">€7,50 <span>/ p.p.</span></div>
+      <ul>
+        <li>Vanaf 2 teams, tot 6 teams</li>
+        <li>Alle beschikbare steden</li>
+        <li>Live leaderboard & GPS</li>
+        <li>Direct boekbaar via de app</li>
+      </ul>
+    </div>
+    <div class="price-card featured reveal reveal-delay-2">
+      <span class="price-badge">Bedrijven</span>
+      <h3>Teamuitje</h3>
+      <div class="price-amount mint">€15–25 <span>/ p.p.</span></div>
+      <ul>
+        <li>Grote groepen welkom</li>
+        <li>Optionele begeleiding</li>
+        <li>Maatwerk thema's mogelijk</li>
+        <li>Factuur op bedrijfsnaam</li>
+      </ul>
+    </div>
+    <div class="price-card reveal reveal-delay-3">
+      <span class="price-badge ghost">Scholen</span>
+      <h3>Educatief</h3>
+      <div class="price-amount mint">€15–25 <span>/ p.p.</span></div>
+      <ul>
+        <li>Geschikt voor grote klassen</li>
+        <li>Educatieve invalshoek</li>
+        <li>Historische thema's</li>
+        <li>Begeleiding inbegrepen</li>
+      </ul>
+    </div>
+    <div class="price-card reveal reveal-delay-4">
+      <span class="price-badge ghost">VVV / Gemeenten</span>
+      <h3>Stadspartner</h3>
+      <div class="price-amount" style="font-size:2.2rem;line-height:1.1;margin:1rem 0;">Branded<br><span style="font-size:0.9rem;color:var(--text);font-family:'DM Sans'">game-ervaring op maat</span></div>
+      <ul>
+        <li>Eigen locaties & verhaallijnen</li>
+        <li>Jouw branding in de app</li>
+        <li>Langdurige samenwerking</li>
+        <li>Neem contact op voor tarief</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ROADMAP -->
+<section class="phases" id="phases">
+  <p class="section-label reveal">Wanneer kan ik spelen?</p>
+  <h2 class="reveal">Binnenkort<br>in jouw stad.</h2>
+
+  <div class="timeline">
+    <div class="phase active reveal reveal-delay-1">
+      <div class="phase-dot"></div>
+      <div class="phase-num">Nu</div>
+      <h3>In ontwikkeling</h3>
+      <p>De eerste puzzels, locaties en app-functionaliteit worden gebouwd. Meld je aan en volg de voortgang als eerste.</p>
+      <span class="phase-tag now">Bezig</span>
+    </div>
+    <div class="phase reveal reveal-delay-2">
+      <div class="phase-dot"></div>
+      <div class="phase-num">Binnenkort</div>
+      <h3>Eerste battles</h3>
+      <p>De allereerste games vinden plaats in Arnhem en Utrecht. Wil je erbij zijn? Meld je aan en we houden je op de hoogte.</p>
+      <span class="phase-tag soon">Voorjaar 2026</span>
+    </div>
+    <div class="phase reveal reveal-delay-3">
+      <div class="phase-dot"></div>
+      <div class="phase-num">Zomer 2026</div>
+      <h3>Open voor iedereen</h3>
+      <p>Gridlock gaat live. Boek een game voor je vriendengroep, je bedrijfsuitje of je schoolklas — direct via de website.</p>
+      <span class="phase-tag soon">Launch</span>
+    </div>
+    <div class="phase reveal reveal-delay-4">
+      <div class="phase-dot"></div>
+      <div class="phase-num">2027</div>
+      <h3>Meer steden</h3>
+      <p>Na Arnhem en Utrecht volgen nieuwe steden. Nieuwe locaties, nieuwe verhalen, dezelfde competitieve battle-formule.</p>
+      <span class="phase-tag soon">Uitbreiding</span>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section" id="cta">
+  <h2>Klaar voor<br>de battle?</h2>
+  <p>Gridlock lanceert binnenkort in Arnhem en Utrecht. Meld je aan en speel als eerste mee.</p>
+  <a href="#" class="btn-dark">Meld me aan →</a>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">
+    Gridlock
+    <span>dé city battle</span>
+  </div>
+  <ul class="footer-links">
+    <li><a href="#how">Hoe het werkt</a></li>
+    <li><a href="#pricing">Prijzen</a></li>
+    <li><a href="#phases">Steden</a></li>
+    <li><a href="#cta">Contact</a></li>
+  </ul>
+  <div class="footer-copy">© 2026 Gridlock — playgridlock.nl</div>
+</footer>
+
+<script>
+  // Custom cursor
+  const cursor = document.getElementById('cursor');
+  const ring = document.getElementById('cursorRing');
+  let mouseX = 0, mouseY = 0;
+  let ringX = 0, ringY = 0;
+
+  document.addEventListener('mousemove', e => {
+    mouseX = e.clientX; mouseY = e.clientY;
+    cursor.style.left = mouseX + 'px';
+    cursor.style.top = mouseY + 'px';
+  });
+
+  function animateRing() {
+    ringX += (mouseX - ringX) * 0.12;
+    ringY += (mouseY - ringY) * 0.12;
+    ring.style.left = ringX + 'px';
+    ring.style.top = ringY + 'px';
+    requestAnimationFrame(animateRing);
+  }
+  animateRing();
+
+  // Nav scroll
+  const nav = document.getElementById('nav');
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('scrolled', window.scrollY > 60);
+  });
+
+  // Scroll reveal
+  const reveals = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+  reveals.forEach(el => observer.observe(el));
+
+
+</script>
+
+</body>
+</html>
