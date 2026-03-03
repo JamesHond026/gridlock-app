@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gridlock Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --mint:#3DFFA0; --black:#080808; --dark:#0f0f0f; --card:#141414;
+  --card2:#1a1a1a; --border:#222; --border2:#2a2a2a; --text:#777;
+  --white:#f0f0f0; --red:#FF6B6B; --orange:#FF9F43; --blue:#4aaeff;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--black);color:var(--white);font-family:'DM Sans',sans-serif;min-height:100vh;display:flex;}
+
+/* ── SIDEBAR ── */
+.sidebar{width:220px;flex-shrink:0;background:var(--dark);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;}
+.sb-logo{padding:1.5rem 1.25rem 1rem;border-bottom:1px solid var(--border);}
+.sb-logo-text{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--mint);letter-spacing:.04em;}
+.sb-logo-sub{font-family:'Space Mono',monospace;font-size:.45rem;color:rgba(61,255,160,.35);letter-spacing:.2em;text-transform:uppercase;}
+.sb-nav{flex:1;padding:.75rem 0;overflow-y:auto;}
+.sb-section{font-family:'Space Mono',monospace;font-size:.45rem;color:#333;letter-spacing:.2em;text-transform:uppercase;padding:.75rem 1.25rem .35rem;}
+.sb-item{display:flex;align-items:center;gap:.65rem;padding:.65rem 1.25rem;cursor:pointer;color:var(--text);font-family:'Space Mono',monospace;font-size:.62rem;letter-spacing:.04em;transition:all .15s;border-left:2px solid transparent;}
+.sb-item:hover{color:var(--white);background:rgba(255,255,255,.03);}
+.sb-item.active{color:var(--mint);border-left-color:var(--mint);background:rgba(61,255,160,.04);}
+.sb-icon{font-size:.9rem;width:18px;text-align:center;}
+.sb-bottom{padding:1rem 1.25rem;border-top:1px solid var(--border);}
+.sb-version{font-family:'Space Mono',monospace;font-size:.45rem;color:#2a2a2a;letter-spacing:.1em;}
+
+/* ── MAIN ── */
+.main{flex:1;margin-left:220px;min-height:100vh;display:flex;flex-direction:column;}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.5rem;border-bottom:1px solid var(--border);background:rgba(8,8,8,.8);backdrop-filter:blur(8px);position:sticky;top:0;z-index:10;}
+.topbar-title{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--white);letter-spacing:.03em;}
+.topbar-right{display:flex;align-items:center;gap:.75rem;}
+.status-pill{font-family:'Space Mono',monospace;font-size:.5rem;padding:.3rem .7rem;letter-spacing:.1em;text-transform:uppercase;}
+.status-pill.ok{background:rgba(61,255,160,.1);color:var(--mint);border:1px solid rgba(61,255,160,.2);}
+.status-pill.err{background:rgba(255,107,107,.1);color:var(--red);border:1px solid rgba(255,107,107,.2);}
+.content{flex:1;padding:1.5rem;}
+
+/* ── TABS ── */
+.tab-bar{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.5rem;}
+.tab-btn{font-family:'Space Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;padding:.65rem 1.1rem;cursor:pointer;color:var(--text);background:transparent;border:none;border-bottom:2px solid transparent;transition:all .15s;}
+.tab-btn.active{color:var(--mint);border-bottom-color:var(--mint);}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
+
+/* ── STAT CARDS ── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;margin-bottom:1.5rem;}
+.stat-card{background:var(--card);border:1px solid var(--border);padding:1.1rem;position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent,var(--mint)),transparent);}
+.stat-num{font-family:'Bebas Neue',sans-serif;font-size:2.2rem;line-height:1;margin-bottom:.2rem;}
+.stat-lbl{font-family:'Space Mono',monospace;font-size:.48rem;color:var(--text);letter-spacing:.12em;text-transform:uppercase;}
+.stat-sub{font-size:.72rem;color:var(--text);font-weight:300;margin-top:.2rem;}
+
+/* ── TABEL ── */
+.table-wrap{background:var(--card);border:1px solid var(--border);overflow:hidden;}
+.table-head{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1rem;border-bottom:1px solid var(--border);}
+.table-title{font-family:'Space Mono',monospace;font-size:.6rem;color:var(--mint);letter-spacing:.12em;text-transform:uppercase;}
+table{width:100%;border-collapse:collapse;}
+th{font-family:'Space Mono',monospace;font-size:.5rem;color:var(--text);letter-spacing:.1em;text-transform:uppercase;padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--border);background:rgba(0,0,0,.3);}
+td{padding:.7rem 1rem;font-size:.82rem;border-bottom:1px solid rgba(255,255,255,.03);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,.02);}
+.badge{font-family:'Space Mono',monospace;font-size:.48rem;padding:2px 7px;letter-spacing:.06em;text-transform:uppercase;border-radius:2px;}
+.badge.green{background:rgba(61,255,160,.1);color:var(--mint);}
+.badge.orange{background:rgba(255,159,67,.1);color:var(--orange);}
+.badge.red{background:rgba(255,107,107,.1);color:var(--red);}
+.badge.gray{background:rgba(255,255,255,.06);color:var(--text);}
+
+/* ── FORM ELEMENTEN ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;}
+.form-grid.full{grid-template-columns:1fr;}
+.form-group{display:flex;flex-direction:column;gap:.4rem;}
+.form-label{font-family:'Space Mono',monospace;font-size:.52rem;color:var(--text);letter-spacing:.1em;text-transform:uppercase;}
+.form-input{background:var(--black);border:1px solid var(--border2);color:var(--white);padding:.7rem .9rem;font-family:'DM Sans',sans-serif;font-size:.85rem;outline:none;transition:border-color .15s;border-radius:2px;}
+.form-input:focus{border-color:var(--mint);}
+.form-input::placeholder{color:#2a2a2a;}
+select.form-input{cursor:pointer;}
+textarea.form-input{resize:vertical;min-height:80px;font-family:'DM Sans',sans-serif;}
+.form-hint{font-size:.7rem;color:#333;font-weight:300;}
+
+.opt-row{display:flex;gap:.5rem;align-items:center;margin-bottom:.4rem;}
+.opt-row input{flex:1;}
+.opt-correct{width:32px;height:32px;border:1px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;font-size:.7rem;border-radius:2px;flex-shrink:0;transition:all .15s;}
+.opt-correct.selected{background:rgba(61,255,160,.15);border-color:var(--mint);color:var(--mint);}
+
+/* ── KNOPPEN ── */
+.btn{padding:.65rem 1.1rem;font-family:'Space Mono',monospace;font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border:none;border-radius:2px;transition:opacity .15s;}
+.btn:active{opacity:.75;}
+.btn-mint{background:var(--mint);color:var(--black);}
+.btn-ghost{background:transparent;color:var(--white);border:1px solid var(--border2);}
+.btn-ghost:hover{border-color:var(--mint);color:var(--mint);}
+.btn-red{background:transparent;color:var(--red);border:1px solid rgba(255,107,107,.25);}
+.btn-red:hover{background:rgba(255,107,107,.08);}
+.btn-orange{background:transparent;color:var(--orange);border:1px solid rgba(255,159,67,.3);}
+.btn-sm{padding:.4rem .75rem;font-size:.52rem;}
+
+/* ── CARDS ── */
+.panel{background:var(--card);border:1px solid var(--border);padding:1.25rem;margin-bottom:1rem;}
+.panel-title{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--mint);letter-spacing:.15em;text-transform:uppercase;margin-bottom:1rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);}
+
+/* ── GAME ROWS ── */
+.game-row{display:flex;align-items:center;gap:1rem;padding:.75rem 1rem;border-bottom:1px solid rgba(255,255,255,.03);cursor:pointer;transition:background .15s;}
+.game-row:hover{background:rgba(255,255,255,.02);}
+.game-row:last-child{border-bottom:none;}
+.game-code-val{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:var(--mint);letter-spacing:.1em;min-width:110px;}
+.game-meta{flex:1;font-size:.78rem;color:var(--text);}
+.game-meta b{color:var(--white);}
+
+/* ── LOCATIE ITEM ── */
+.loc-item{display:flex;align-items:center;gap:.85rem;padding:.75rem 1rem;border-bottom:1px solid rgba(255,255,255,.03);transition:background .15s;}
+.loc-item:hover{background:rgba(255,255,255,.02);}
+.loc-item:last-child{border-bottom:none;}
+.loc-icon{font-size:1.3rem;width:32px;text-align:center;flex-shrink:0;}
+.loc-info{flex:1;min-width:0;}
+.loc-name{font-size:.85rem;font-weight:500;color:var(--white);margin-bottom:.15rem;}
+.loc-meta{font-family:'Space Mono',monospace;font-size:.5rem;color:var(--text);}
+.loc-actions{display:flex;gap:.4rem;flex-shrink:0;}
+
+/* ── MODAL ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:100;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--dark);border:1px solid var(--border);width:100%;max-width:580px;max-height:90vh;overflow-y:auto;padding:1.5rem;}
+.modal-title{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:var(--mint);margin-bottom:1.25rem;letter-spacing:.04em;}
+.modal-footer{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border);}
+
+/* ── GAME DETAIL ── */
+.detail-overlay{display:none;position:fixed;inset:0;background:var(--black);z-index:50;overflow-y:auto;}
+.detail-overlay.open{display:block;}
+.detail-topbar{display:flex;align-items:center;gap:1rem;padding:1rem 1.5rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--black);z-index:10;}
+.detail-content{padding:1.5rem;max-width:900px;}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;z-index:200;padding:.75rem 1.25rem;font-family:'Space Mono',monospace;font-size:.62rem;letter-spacing:.06em;display:none;border-radius:2px;animation:toastIn .25s ease;}
+.toast.show{display:block;}
+.toast.ok{background:var(--mint);color:var(--black);}
+.toast.err{background:var(--red);color:white;}
+@keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── MISC ── */
+.empty{font-family:'Space Mono',monospace;font-size:.6rem;color:#2a2a2a;text-align:center;padding:2rem;letter-spacing:.1em;}
+.divider-line{height:1px;background:var(--border);margin:1rem 0;}
+.flex-row{display:flex;align-items:center;gap:.75rem;}
+.flex-row.between{justify-content:space-between;}
+.text-mint{color:var(--mint);}
+.text-orange{color:var(--orange);}
+.text-red{color:var(--red);}
+.text-gray{color:var(--text);}
+.mono{font-family:'Space Mono',monospace;font-size:.78rem;}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sb-logo">
+    <div class="sb-logo-text">Gridlock</div>
+    <div class="sb-logo-sub">Admin Dashboard</div>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-section">Overzicht</div>
+    <div class="sb-item active" onclick="navigate('overview')"><span class="sb-icon">📊</span>Dashboard</div>
+    <div class="sb-item" onclick="navigate('games')"><span class="sb-icon">🎮</span>Live Games</div>
+    <div class="sb-section">Inhoud</div>
+    <div class="sb-item" onclick="navigate('locations')"><span class="sb-icon">📍</span>Locaties</div>
+    <div class="sb-item" onclick="navigate('questions')"><span class="sb-icon">❓</span>Vragen</div>
+    <div class="sb-section">Instellingen</div>
+    <div class="sb-item" onclick="navigate('settings')"><span class="sb-icon">⚙️</span>Game instellingen</div>
+    <div class="sb-item" onclick="navigate('bonus')"><span class="sb-icon">⭐</span>Bonus beheer</div>
+  </nav>
+  <div class="sb-bottom">
+    <div class="sb-version">v1.0 · playgridlock.nl</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="page-title">Dashboard</div>
+    <div class="topbar-right">
+      <div class="status-pill ok" id="fb-status">● Firebase verbonden</div>
+      <button class="btn btn-ghost btn-sm" onclick="loadAll()">↺ Vernieuwen</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ══ OVERVIEW ══ -->
+    <div id="pane-overview" class="tab-pane active">
+      <div class="stats-grid">
+        <div class="stat-card" style="--accent:var(--mint)">
+          <div class="stat-num text-mint" id="stat-live">0</div>
+          <div class="stat-lbl">Live games</div>
+          <div class="stat-sub">Op dit moment actief</div>
+        </div>
+        <div class="stat-card" style="--accent:var(--blue)">
+          <div class="stat-num" style="color:var(--blue)" id="stat-total">0</div>
+          <div class="stat-lbl">Totaal gespeeld</div>
+          <div class="stat-sub">Alle tijd</div>
+        </div>
+        <div class="stat-card" style="--accent:var(--orange)">
+          <div class="stat-num text-orange" id="stat-teams">0</div>
+          <div class="stat-lbl">Teams vandaag</div>
+          <div class="stat-sub">Unieke teams</div>
+        </div>
+        <div class="stat-card" style="--accent:var(--mint)">
+          <div class="stat-num text-mint" id="stat-locs">0</div>
+          <div class="stat-lbl">Locaties actief</div>
+          <div class="stat-sub">In Utrecht</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Recente games</div>
+        <div id="recent-games-list"><div class="empty">Laden...</div></div>
+      </div>
+    </div>
+
+    <!-- ══ GAMES ══ -->
+    <div id="pane-games" class="tab-pane">
+      <div class="flex-row between" style="margin-bottom:1rem;">
+        <div style="font-family:'Space Mono',monospace;font-size:.6rem;color:var(--text);" id="games-count">— games geladen</div>
+        <button class="btn btn-red btn-sm" onclick="cleanupOldGames()">🗑 Opruimen (&gt;24u)</button>
+      </div>
+      <div class="table-wrap">
+        <div class="table-head">
+          <div class="table-title">Alle actieve games</div>
+        </div>
+        <div id="games-table-body"><div class="empty">Laden...</div></div>
+      </div>
+    </div>
+
+    <!-- ══ LOCATIONS ══ -->
+    <div id="pane-locations" class="tab-pane">
+      <div class="flex-row between" style="margin-bottom:1rem;">
+        <div style="font-family:'Space Mono',monospace;font-size:.6rem;color:var(--text);" id="locs-count">— locaties</div>
+        <button class="btn btn-mint btn-sm" onclick="openLocModal()">+ Nieuwe locatie</button>
+      </div>
+      <div class="table-wrap">
+        <div class="table-head"><div class="table-title">Utrecht locaties</div></div>
+        <div id="locs-list"><div class="empty">Laden...</div></div>
+      </div>
+    </div>
+
+    <!-- ══ QUESTIONS ══ -->
+    <div id="pane-questions" class="tab-pane">
+      <div class="flex-row between" style="margin-bottom:1rem;">
+        <div style="font-family:'Space Mono',monospace;font-size:.6rem;color:var(--text);">Klik op een locatie om de vraag te bewerken</div>
+      </div>
+      <div id="questions-list"><div class="empty">Selecteer een locatie</div></div>
+    </div>
+
+    <!-- ══ SETTINGS ══ -->
+    <div id="pane-settings" class="tab-pane">
+      <div class="panel">
+        <div class="panel-title">Game instellingen</div>
+        <div class="form-grid" style="margin-bottom:1rem;">
+          <div class="form-group">
+            <div class="form-label">Maximale spelertijd (minuten)</div>
+            <input class="form-input" id="set-duration" type="number" value="120" min="30" max="300">
+            <div class="form-hint">Game stopt automatisch na deze tijd</div>
+          </div>
+          <div class="form-group">
+            <div class="form-label">GPS-radius voor opdrachten (meter)</div>
+            <input class="form-input" id="set-radius" type="number" value="25" min="10" max="100">
+          </div>
+          <div class="form-group">
+            <div class="form-label">Strafpunten bij fout antwoord (%)</div>
+            <input class="form-input" id="set-penalty" type="number" value="25" min="0" max="75">
+            <div class="form-hint">% van basispunten wordt afgetrokken</div>
+          </div>
+          <div class="form-group">
+            <div class="form-label">Team vertraging op kaart (seconden)</div>
+            <input class="form-input" id="set-delay" type="number" value="60" min="0" max="300">
+            <div class="form-hint">Hoe lang geleden andere teams zichtbaar zijn</div>
+          </div>
+          <div class="form-group">
+            <div class="form-label">Puntenafname per volgend team</div>
+            <input class="form-input" id="set-deduct" type="number" value="40" min="0" max="100">
+            <div class="form-hint">Punten minder voor elk team na de eerste</div>
+          </div>
+          <div class="form-group">
+            <div class="form-label">Puntenstijging bij falen ander team</div>
+            <input class="form-input" id="set-failbonus" type="number" value="30" min="0" max="100">
+            <div class="form-hint">Opdracht wordt meer waard als anderen falen</div>
+          </div>
+        </div>
+        <button class="btn btn-mint" onclick="saveSettings()">Instellingen opslaan</button>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Unlock tijden</div>
+        <p style="font-size:.82rem;color:var(--text);margin-bottom:1rem;font-weight:300;">Pas aan wanneer vergrendelde locaties vrijkomen tijdens het spel.</p>
+        <div id="unlock-settings"></div>
+        <button class="btn btn-mint" style="margin-top:1rem;" onclick="saveUnlocks()">Unlock tijden opslaan</button>
+      </div>
+    </div>
+
+    <!-- ══ BONUS ══ -->
+    <div id="pane-bonus" class="tab-pane">
+      <div class="panel">
+        <div class="panel-title">Bonus instellingen</div>
+        <div class="form-grid" style="margin-bottom:1rem;">
+          <div class="form-group">
+            <div class="form-label">Eerste bonus na (minuten)</div>
+            <input class="form-input" id="bonus-first" type="number" value="20" min="5" max="90">
+          </div>
+          <div class="form-group">
+            <div class="form-label">Interval tussen bonussen (minuten)</div>
+            <input class="form-input" id="bonus-interval" type="number" value="25" min="5" max="60">
+          </div>
+        </div>
+        <button class="btn btn-mint" onclick="saveBonusSettings()">Opslaan</button>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Bonus locaties</div>
+        <div id="bonus-locs-list"><div class="empty">Laden...</div></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:.75rem;" onclick="openLocModal(true)">+ Nieuwe bonuslocatie</button>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Handmatig activeren in live game</div>
+        <p style="font-size:.82rem;color:var(--text);margin-bottom:1rem;font-weight:300;">Activeer een bonusopdracht in een specifieke actieve game.</p>
+        <div class="form-grid" style="margin-bottom:.75rem;">
+          <div class="form-group">
+            <div class="form-label">Game code</div>
+            <input class="form-input" id="manual-game-code" placeholder="GRD-XXXX" style="text-transform:uppercase;">
+          </div>
+          <div class="form-group">
+            <div class="form-label">Bonus locatie</div>
+            <select class="form-input" id="manual-bonus-select"></select>
+          </div>
+        </div>
+        <button class="btn btn-orange" onclick="manualBonus()">⭐ Activeer bonus</button>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ── LOCATIE MODAL ── -->
+<div class="modal-overlay" id="loc-modal">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">Nieuwe locatie</div>
+    <input type="hidden" id="edit-loc-id">
+    <div class="form-grid" style="margin-bottom:.75rem;">
+      <div class="form-group">
+        <div class="form-label">Naam</div>
+        <input class="form-input" id="loc-name" placeholder="Domtoren">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Icoon (emoji)</div>
+        <input class="form-input" id="loc-icon" placeholder="🗼" maxlength="4">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Latitude</div>
+        <input class="form-input" id="loc-lat" placeholder="52.09075" type="number" step="0.00001">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Longitude</div>
+        <input class="form-input" id="loc-lng" placeholder="5.12130" type="number" step="0.00001">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Basispunten</div>
+        <input class="form-input" id="loc-points" type="number" value="200" min="50" max="500">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Vrijkomt na (minuten, 0 = direct)</div>
+        <input class="form-input" id="loc-unlock" type="number" value="0" min="0" max="120">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Type vraag</div>
+        <select class="form-input" id="loc-type">
+          <option>Historisch raadsel</option>
+          <option>Cijferraadsel</option>
+          <option>Fotopuzzel</option>
+          <option>Logica-opdracht</option>
+          <option>Verborgen verhaal</option>
+          <option>Bonusopdracht</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Bonus locatie?</div>
+        <select class="form-input" id="loc-isbonus">
+          <option value="false">Nee — gewone locatie</option>
+          <option value="true">Ja — bonusopdracht</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group full" style="margin-bottom:.75rem;">
+      <div class="form-label">Vraag</div>
+      <textarea class="form-input" id="loc-question" placeholder="Stel hier de vraag..."></textarea>
+    </div>
+    <div class="form-group" style="margin-bottom:.5rem;">
+      <div class="form-label">Antwoordopties (klik ✓ voor het juiste antwoord)</div>
+      <div id="opt-list">
+        <div class="opt-row"><input class="form-input" placeholder="Optie A"><button class="opt-correct" onclick="setCorrect(0)" title="Correct">✓</button></div>
+        <div class="opt-row"><input class="form-input" placeholder="Optie B"><button class="opt-correct" onclick="setCorrect(1)" title="Correct">✓</button></div>
+        <div class="opt-row"><input class="form-input" placeholder="Optie C"><button class="opt-correct" onclick="setCorrect(2)" title="Correct">✓</button></div>
+        <div class="opt-row"><input class="form-input" placeholder="Optie D"><button class="opt-correct" onclick="setCorrect(3)" title="Correct">✓</button></div>
+      </div>
+    </div>
+    <input type="hidden" id="loc-answer" value="0">
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeLocModal()">Annuleren</button>
+      <button class="btn btn-mint" onclick="saveLocation()">Opslaan →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── GAME DETAIL OVERLAY ── -->
+<div class="detail-overlay" id="game-detail">
+  <div class="detail-topbar">
+    <button class="btn btn-ghost btn-sm" onclick="closeGameDetail()">← Terug</button>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:var(--mint);" id="detail-title">Game detail</div>
+    <div style="flex:1;"></div>
+    <button class="btn btn-red btn-sm" onclick="forceEndGame()">⏹ Stop game</button>
+  </div>
+  <div class="detail-content">
+    <div class="stats-grid" id="detail-stats"></div>
+    <div class="panel">
+      <div class="panel-title">Teams & scores</div>
+      <div id="detail-teams"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Voltooide opdrachten</div>
+      <div id="detail-missions"></div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, get, set, update, remove, onValue, push }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+const fbApp = initializeApp({
+  apiKey:"AIzaSyDyITaoy4-Htv6Fqv-ssaNhLDbSMVRMuuY",
+  authDomain:"gridlock-cc123.firebaseapp.com",
+  databaseURL:"https://gridlock-cc123-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"gridlock-cc123",
+  storageBucket:"gridlock-cc123.firebasestorage.app",
+  messagingSenderId:"1074158392885",
+  appId:"1:1074158392885:web:767487b337cd00c5d1037c"
+});
+const db = getDatabase(fbApp);
+
+// ── Default missions (fallback als Firebase leeg is) ──
+const DEFAULT_MISSIONS = [
+  {id:'m1',name:'Domtoren',icon:'🗼',type:'Cijferraadsel',lat:52.09075,lng:5.12130,points:200,unlockAfter:0,isBonus:false,question:'Hoe hoog is de Domtoren in Utrecht precies?',options:['92 meter','102 meter','112 meter','122 meter'],answer:2},
+  {id:'m2',name:'Oudegracht',icon:'🌊',type:'Historisch raadsel',lat:52.09210,lng:5.11820,points:175,unlockAfter:0,isBonus:false,question:'De Oudegracht heeft unieke kelders direct aan het water. Waarvoor werden ze oorspronkelijk gebruikt?',options:['Als gevangenis','Als wijnopslag en handel','Als wasruimte','Als schuilkelder'],answer:1},
+  {id:'m3',name:'Utrecht Centraal',icon:'🚂',type:'Fotopuzzel',lat:52.08940,lng:5.10987,points:125,unlockAfter:0,isBonus:false,question:'Hoe heet het grote overdekte winkelcentrum direct naast Utrecht Centraal?',options:['Hoog Catharijne','De Passage','Stadshart','City Plaza'],answer:0},
+  {id:'m4',name:'Domplein',icon:'🏛️',type:'Verborgen verhaal',lat:52.09060,lng:5.12110,points:225,unlockAfter:0,isBonus:false,question:'Op het Domplein zijn contouren van een verdwenen gebouw zichtbaar. Welk gebouw?',options:['Een Romeins fort','Het oude stadhuis','Het schip van de Domkerk','Een middeleeuws paleis'],answer:2},
+  {id:'m5',name:'Trajectum Lumen',icon:'💡',type:'Logica-opdracht',lat:52.09190,lng:5.11750,points:150,unlockAfter:0,isBonus:false,question:'Wat betekent "Trajectum" in het Latijn?',options:['Lichtpad','Doorwaadbare plaats','Oude stad','Rivieroversteek'],answer:1},
+  {id:'m6',name:'Centraal Museum',icon:'🎨',type:'Cijferraadsel',lat:52.08658,lng:5.11693,points:200,unlockAfter:0,isBonus:false,question:'Het Centraal Museum bezit de grootste collectie ter wereld van welke Nederlandse ontwerper?',options:['Piet Mondriaan','Gerrit Rietveld','Vincent van Gogh','M.C. Escher'],answer:1},
+  {id:'m7',name:'Stadhuisbrug',icon:'🌉',type:'Verborgen verhaal',lat:52.09285,lng:5.11870,points:150,unlockAfter:0,isBonus:false,question:'Welke rivier stroomt door de Oudegracht in Utrecht?',options:['De Rijn','De Vecht','De Lek','De Hollandse IJssel'],answer:0},
+  {id:'m8',name:'Neude',icon:'📮',type:'Historisch raadsel',lat:52.09335,lng:5.12095,points:175,unlockAfter:0,isBonus:false,question:'Het imposante gebouw op de Neude was vroeger een postkantoor. Hoe heet het nu?',options:['De Winkel van Sinkel','Het Postkantoor','Neude 7','De Passage'],answer:1},
+  {id:'m9',name:'Paushuize',icon:'⚓',type:'Logica-opdracht',lat:52.09178,lng:5.12370,points:200,unlockAfter:0,isBonus:false,question:'In het Paushuize woonde ooit de enige Nederlandse paus. Wie was dat?',options:['Paus Johannes','Paus Adrianus VI','Paus Clemens','Paus Gregorius'],answer:1},
+  {id:'m10',name:'Rietveld Schröderhuis',icon:'🏠',type:'Fotopuzzel',lat:52.08530,lng:5.13750,points:250,unlockAfter:0,isBonus:false,question:'Het Rietveld Schröderhuis staat op de UNESCO Werelderfgoedlijst. In welk jaar werd het gebouwd?',options:['1908','1916','1924','1932'],answer:2},
+  {id:'m11',name:'Winkel van Sinkel',icon:'🏺',type:'Historisch raadsel',lat:52.09330,lng:5.11690,points:175,unlockAfter:0,isBonus:false,question:'De Winkel van Sinkel was in 1838 bijzonder. Waarom?',options:['Eerste supermarkt van NL','Eerste warenhuis van NL','Eerste apotheek van NL','Eerste café van Utrecht'],answer:1},
+  {id:'m12',name:'Dom Under',icon:'🏺',type:'Cijferraadsel',lat:52.09040,lng:5.12060,points:225,unlockAfter:0,isBonus:false,question:'Welk Romeins fort lag onder het Domplein?',options:['Noviomagus','Trajectum','Castellum','Castra Regina'],answer:1},
+  {id:'m13',name:'Janskerk',icon:'⛪',type:'Historisch raadsel',lat:52.09390,lng:5.12150,points:175,unlockAfter:0,isBonus:false,question:'De Janskerk heeft een opvallende eigenschap vergeleken met andere kerken. Welke?',options:['Geen toren','Ronde vorm','Roze bakstenen','Dubbele ingang'],answer:0},
+  {id:'m14',name:'Lepelenburg',icon:'🌳',type:'Logica-opdracht',lat:52.08920,lng:5.12530,points:150,unlockAfter:0,isBonus:false,question:'Park Lepelenburg grenst aan een historische singel. Welke dieren leven er in de vijver?',options:['Krokodillen','Zwanen en eenden','Vissen en schildpadden','Flamingos'],answer:1},
+  {id:'m15',name:'Munt Utrecht',icon:'🪙',type:'Cijferraadsel',lat:52.09560,lng:5.11840,points:200,unlockAfter:0,isBonus:false,question:'Hoeveel stuivers was één gulden waard?',options:['10 stuivers','16 stuivers','20 stuivers','25 stuivers'],answer:2},
+  {id:'m16',name:'Catharijneconvent',icon:'✝️',type:'Verborgen verhaal',lat:52.09000,lng:5.11340,points:200,unlockAfter:0,isBonus:false,question:'In welk oud gebouw zit Museum Catharijneconvent?',options:['Voormalig ziekenhuis','Voormalig klooster','Voormalige gevangenis','Voormalig stadhuis'],answer:1},
+  {id:'m17',name:'Sonnenborgh',icon:'🔭',type:'Cijferraadsel',lat:52.08810,lng:5.12660,points:350,unlockAfter:45,isBonus:false,question:'Sterrenwacht Sonnenborgh staat op een bijzondere plek. Wat stond hier vroeger?',options:['Een kerk','Een bolwerk van de stadsmuur','Een marktplein','Een gasthuis'],answer:1},
+  {id:'m18',name:'Nicolaikerk',icon:'⛪',type:'Historisch raadsel',lat:52.09430,lng:5.11920,points:300,unlockAfter:45,isBonus:false,question:'De Nicolaikerk is een van de oudste kerken van Utrecht. Uit welke eeuw stamt de oudste kern?',options:['8e eeuw','10e eeuw','12e eeuw','14e eeuw'],answer:2},
+  {id:'m19',name:'Geertekerk',icon:'🏯',type:'Verborgen verhaal',lat:52.09010,lng:5.12890,points:325,unlockAfter:45,isBonus:false,question:'De Geertekerk werd lang als militair pakhuis gebruikt. Door welk land was Utrecht toen bezet?',options:['Spanje','Frankrijk','Pruisen','Oostenrijk'],answer:1},
+  {id:'m20',name:'Academiegebouw UU',icon:'🎓',type:'Logica-opdracht',lat:52.09250,lng:5.12310,points:300,unlockAfter:45,isBonus:false,question:'De Universiteit Utrecht werd opgericht in 1636. Wie gaf toestemming?',options:['De koning van Spanje','De Staten van Utrecht','Prins Maurits','De Rooms-Duitse keizer'],answer:1},
+  {id:'bonus1',name:'BONUS: Ganzenmarkt',icon:'⭐',type:'Bonusopdracht',lat:52.09300,lng:5.12010,points:400,unlockAfter:0,isBonus:true,question:'Welke bijnaam had Graaf Jan van Nassau?',options:['De Stoere','De Oude','De Blinde','De Vrome'],answer:2},
+  {id:'bonus2',name:'BONUS: Broederenkerk',icon:'⭐',type:'Bonusopdracht',lat:52.09470,lng:5.11680,points:450,unlockAfter:0,isBonus:true,question:'De Broederenkerk werd gebouwd door welke kloosterorde?',options:['Franciscanen','Dominicanen','Augustijnen','Benedictijnen'],answer:1},
+];
+
+const DEFAULT_SETTINGS = {
+  gameDuration: 120, gpsRadius: 25, penaltyPct: 25,
+  teamDelaySec: 60, pointDeduct: 40, failBonus: 30,
+  bonusFirstMin: 20, bonusIntervalMin: 25
+};
+
+let allMissions = [];
+let allSettings = {...DEFAULT_SETTINGS};
+let currentDetailGame = null;
+
+// ── Init ──
+window.navigate = navigate;
+window.loadAll = loadAll;
+window.openLocModal = openLocModal;
+window.closeLocModal = closeLocModal;
+window.saveLocation = saveLocation;
+window.setCorrect = setCorrect;
+window.saveSettings = saveSettings;
+window.saveUnlocks = saveUnlocks;
+window.saveBonusSettings = saveBonusSettings;
+window.manualBonus = manualBonus;
+window.cleanupOldGames = cleanupOldGames;
+window.openGameDetail = openGameDetail;
+window.closeGameDetail = closeGameDetail;
+window.forceEndGame = forceEndGame;
+window.editLocation = editLocation;
+window.deleteLocation = deleteLocation;
+
+document.addEventListener('DOMContentLoaded', async ()=>{
+  try {
+    await ensureMissionsInFirebase();
+    await loadSettings();
+    await loadAll();
+    document.getElementById('fb-status').textContent = '● Firebase verbonden';
+    document.getElementById('fb-status').className = 'status-pill ok';
+  } catch(e) {
+    document.getElementById('fb-status').textContent = '● Verbinding mislukt';
+    document.getElementById('fb-status').className = 'status-pill err';
+  }
+  listenLiveGames();
+});
+
+// ── Zorg dat missions in Firebase staan ──
+async function ensureMissionsInFirebase(){
+  const snap = await get(ref(db,'config/missions'));
+  if(!snap.exists()){
+    const obj = {};
+    DEFAULT_MISSIONS.forEach(m=>{ obj[m.id]=m; });
+    await set(ref(db,'config/missions'), obj);
+  }
+  const snap2 = await get(ref(db,'config/missions'));
+  const raw = snap2.val();
+  allMissions = Object.values(raw).sort((a,b)=> (a.isBonus?1:0)-(b.isBonus?1:0) || a.id.localeCompare(b.id));
+}
+
+async function loadSettings(){
+  const snap = await get(ref(db,'config/settings'));
+  if(snap.exists()) allSettings = {...DEFAULT_SETTINGS, ...snap.val()};
+  document.getElementById('set-duration').value   = allSettings.gameDuration;
+  document.getElementById('set-radius').value     = allSettings.gpsRadius;
+  document.getElementById('set-penalty').value    = allSettings.penaltyPct;
+  document.getElementById('set-delay').value      = allSettings.teamDelaySec;
+  document.getElementById('set-deduct').value     = allSettings.pointDeduct;
+  document.getElementById('set-failbonus').value  = allSettings.failBonus;
+  document.getElementById('bonus-first').value    = allSettings.bonusFirstMin;
+  document.getElementById('bonus-interval').value = allSettings.bonusIntervalMin;
+  renderUnlockSettings();
+}
+
+// ── Navigate ──
+function navigate(page){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));
+  document.getElementById('pane-'+page).classList.add('active');
+  event.currentTarget.classList.add('active');
+  const titles = {overview:'Dashboard',games:'Live Games',locations:'Locaties',questions:'Vragen',settings:'Game Instellingen',bonus:'Bonus Beheer'};
+  document.getElementById('page-title').textContent = titles[page]||page;
+  if(page==='locations') renderLocations();
+  if(page==='questions') renderQuestions();
+  if(page==='bonus')     renderBonusLocs();
+}
+
+// ── Load all ──
+async function loadAll(){
+  await ensureMissionsInFirebase();
+  renderOverview();
+  renderGamesTable();
+  document.getElementById('stat-locs').textContent = allMissions.filter(m=>!m.isBonus).length;
+}
+
+// ── Live listener voor stats ──
+function listenLiveGames(){
+  onValue(ref(db,'games'), snap=>{
+    const games = snap.exists() ? Object.entries(snap.val()) : [];
+    const live = games.filter(([,g])=>g.status==='started').length;
+    const total = games.length;
+    document.getElementById('stat-live').textContent  = live;
+    document.getElementById('stat-total').textContent = total;
+    const today = new Date().toDateString();
+    let teams = 0;
+    games.forEach(([,g])=>{ if(g.teams && new Date(g.createdAt||0).toDateString()===today) teams+=Object.keys(g.teams).length; });
+    document.getElementById('stat-teams').textContent = teams;
+  });
+}
+
+// ── Overview ──
+async function renderOverview(){
+  const snap = await get(ref(db,'games'));
+  const list = document.getElementById('recent-games-list');
+  if(!snap.exists()){list.innerHTML='<div class="empty">Geen games gevonden</div>';return;}
+  const games = Object.entries(snap.val())
+    .sort(([,a],[,b])=>(b.createdAt||0)-(a.createdAt||0))
+    .slice(0,8);
+  list.innerHTML = games.map(([code,g])=>{
+    const teams = g.teams ? Object.values(g.teams) : [];
+    const age = timeSince(g.createdAt);
+    const statusBadge = g.status==='started'?'<span class="badge green">Live</span>':g.status==='ended'?'<span class="badge gray">Klaar</span>':'<span class="badge orange">Lobby</span>';
+    return `<div class="game-row" onclick="openGameDetail('${code}')">
+      <div class="game-code-val">${code}</div>
+      <div class="game-meta"><b>${teams.length} teams</b> · ${age}</div>
+      ${statusBadge}
+    </div>`;
+  }).join('');
+}
+
+// ── Games tabel ──
+async function renderGamesTable(){
+  const snap = await get(ref(db,'games'));
+  const body = document.getElementById('games-table-body');
+  if(!snap.exists()){body.innerHTML='<div class="empty">Geen games</div>';return;}
+  const games = Object.entries(snap.val()).sort(([,a],[,b])=>(b.createdAt||0)-(a.createdAt||0));
+  document.getElementById('games-count').textContent = `${games.length} games`;
+  body.innerHTML = `<table><thead><tr>
+    <th>Code</th><th>Status</th><th>Teams</th><th>Creator</th><th>Gestart</th><th>Acties</th>
+  </tr></thead><tbody>`+
+  games.map(([code,g])=>{
+    const teams = g.teams?Object.keys(g.teams).length:0;
+    const status = g.status==='started'?'<span class="badge green">Live</span>':g.status==='ended'?'<span class="badge gray">Klaar</span>':'<span class="badge orange">Lobby</span>';
+    return `<tr>
+      <td class="mono text-mint" style="cursor:pointer;" onclick="openGameDetail('${code}')">${code}</td>
+      <td>${status}</td>
+      <td>${teams}</td>
+      <td class="text-gray">${g.creator||g.host||'—'}</td>
+      <td class="text-gray">${timeSince(g.createdAt)}</td>
+      <td><button class="btn btn-red btn-sm" onclick="deleteGame('${code}')">Verwijder</button></td>
+    </tr>`;
+  }).join('')+'</tbody></table>';
+}
+
+// ── Locaties ──
+function renderLocations(){
+  const list = document.getElementById('locs-list');
+  const regular = allMissions.filter(m=>!m.isBonus);
+  document.getElementById('locs-count').textContent = `${regular.length} locaties`;
+  list.innerHTML = regular.map(m=>`
+    <div class="loc-item">
+      <div class="loc-icon">${m.icon}</div>
+      <div class="loc-info">
+        <div class="loc-name">${m.name}</div>
+        <div class="loc-meta">${m.lat.toFixed(5)}, ${m.lng.toFixed(5)} · ${m.points} pts · ${m.unlockAfter>0?'🔒 na '+m.unlockAfter+'min':'Direct'}</div>
+      </div>
+      <div class="loc-actions">
+        <button class="btn btn-ghost btn-sm" onclick="editLocation('${m.id}')">Bewerk</button>
+        <button class="btn btn-red btn-sm" onclick="deleteLocation('${m.id}')">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+// ── Vragen ──
+function renderQuestions(){
+  const list = document.getElementById('questions-list');
+  list.innerHTML = allMissions.filter(m=>!m.isBonus).map(m=>`
+    <div class="panel" style="margin-bottom:.75rem;">
+      <div class="flex-row between" style="margin-bottom:.75rem;">
+        <div style="font-size:.9rem;font-weight:500;">${m.icon} ${m.name}</div>
+        <button class="btn btn-ghost btn-sm" onclick="editLocation('${m.id}')">Bewerk vraag</button>
+      </div>
+      <div style="font-size:.82rem;color:var(--text);margin-bottom:.5rem;">${m.question}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:.35rem;">
+        ${m.options.map((o,i)=>`<span class="badge ${i===m.answer?'green':'gray'}">${String.fromCharCode(65+i)}. ${o}</span>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+// ── Bonus locaties ──
+function renderBonusLocs(){
+  const list = document.getElementById('bonus-locs-list');
+  const bonuses = allMissions.filter(m=>m.isBonus);
+  list.innerHTML = bonuses.length ? bonuses.map(m=>`
+    <div class="loc-item">
+      <div class="loc-icon">${m.icon}</div>
+      <div class="loc-info">
+        <div class="loc-name">${m.name}</div>
+        <div class="loc-meta">${m.points} pts · ${m.question.substring(0,50)}...</div>
+      </div>
+      <div class="loc-actions">
+        <button class="btn btn-ghost btn-sm" onclick="editLocation('${m.id}')">Bewerk</button>
+        <button class="btn btn-red btn-sm" onclick="deleteLocation('${m.id}')">✕</button>
+      </div>
+    </div>`).join('') : '<div class="empty">Geen bonuslocaties</div>';
+
+  // Vul select voor manual bonus
+  const sel = document.getElementById('manual-bonus-select');
+  sel.innerHTML = bonuses.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+}
+
+// ── Unlock instellingen ──
+function renderUnlockSettings(){
+  const el = document.getElementById('unlock-settings');
+  const locked = allMissions.filter(m=>!m.isBonus && m.unlockAfter>0);
+  if(!locked.length){ el.innerHTML='<div class="empty">Geen vergrendelde locaties</div>'; return; }
+  el.innerHTML = locked.map(m=>`
+    <div class="flex-row" style="margin-bottom:.6rem;">
+      <div style="flex:1;font-size:.85rem;">${m.icon} ${m.name}</div>
+      <input class="form-input" id="unlock-${m.id}" type="number" value="${m.unlockAfter}" min="0" max="120" style="width:90px;">
+      <span class="text-gray" style="font-family:'Space Mono',monospace;font-size:.55rem;">min</span>
+    </div>`).join('');
+}
+
+// ── Modal ──
+function openLocModal(isBonus=false){
+  document.getElementById('modal-title').textContent = 'Nieuwe locatie';
+  document.getElementById('edit-loc-id').value = '';
+  document.getElementById('loc-name').value = '';
+  document.getElementById('loc-icon').value = isBonus?'⭐':'📍';
+  document.getElementById('loc-lat').value = '';
+  document.getElementById('loc-lng').value = '';
+  document.getElementById('loc-points').value = isBonus?'400':'200';
+  document.getElementById('loc-unlock').value = '0';
+  document.getElementById('loc-type').value = isBonus?'Bonusopdracht':'Historisch raadsel';
+  document.getElementById('loc-isbonus').value = String(isBonus);
+  document.getElementById('loc-question').value = '';
+  document.querySelectorAll('#opt-list .form-input').forEach(i=>i.value='');
+  document.getElementById('loc-answer').value = '0';
+  document.querySelectorAll('.opt-correct').forEach((b,i)=>b.classList.toggle('selected',i===0));
+  document.getElementById('loc-modal').classList.add('open');
+}
+
+function editLocation(id){
+  const m = allMissions.find(x=>x.id===id); if(!m) return;
+  document.getElementById('modal-title').textContent = 'Bewerk: '+m.name;
+  document.getElementById('edit-loc-id').value = m.id;
+  document.getElementById('loc-name').value = m.name;
+  document.getElementById('loc-icon').value = m.icon;
+  document.getElementById('loc-lat').value  = m.lat;
+  document.getElementById('loc-lng').value  = m.lng;
+  document.getElementById('loc-points').value = m.points;
+  document.getElementById('loc-unlock').value = m.unlockAfter||0;
+  document.getElementById('loc-type').value = m.type;
+  document.getElementById('loc-isbonus').value = String(!!m.isBonus);
+  document.getElementById('loc-question').value = m.question;
+  const opts = document.querySelectorAll('#opt-list .form-input');
+  m.options.forEach((o,i)=>{ if(opts[i]) opts[i].value=o; });
+  document.getElementById('loc-answer').value = m.answer;
+  document.querySelectorAll('.opt-correct').forEach((b,i)=>b.classList.toggle('selected',i===m.answer));
+  document.getElementById('loc-modal').classList.add('open');
+}
+
+function closeLocModal(){ document.getElementById('loc-modal').classList.remove('open'); }
+
+function setCorrect(idx){
+  document.getElementById('loc-answer').value = idx;
+  document.querySelectorAll('.opt-correct').forEach((b,i)=>b.classList.toggle('selected',i===idx));
+}
+
+async function saveLocation(){
+  const id = document.getElementById('edit-loc-id').value || 'm'+Date.now();
+  const opts = [...document.querySelectorAll('#opt-list .form-input')].map(i=>i.value.trim()).filter(Boolean);
+  if(opts.length < 2){ toast('Minimaal 2 antwoordopties nodig','err'); return; }
+  const m = {
+    id, name: document.getElementById('loc-name').value.trim(),
+    icon: document.getElementById('loc-icon').value.trim()||'📍',
+    lat:  parseFloat(document.getElementById('loc-lat').value),
+    lng:  parseFloat(document.getElementById('loc-lng').value),
+    points: parseInt(document.getElementById('loc-points').value),
+    unlockAfter: parseInt(document.getElementById('loc-unlock').value)||0,
+    type: document.getElementById('loc-type').value,
+    isBonus: document.getElementById('loc-isbonus').value==='true',
+    question: document.getElementById('loc-question').value.trim(),
+    options: opts,
+    answer: parseInt(document.getElementById('loc-answer').value)||0
+  };
+  if(!m.name||!m.question||isNaN(m.lat)||isNaN(m.lng)){ toast('Vul alle verplichte velden in','err'); return; }
+  await set(ref(db,`config/missions/${id}`), m);
+  const idx = allMissions.findIndex(x=>x.id===id);
+  if(idx>=0) allMissions[idx]=m; else allMissions.push(m);
+  closeLocModal();
+  renderLocations(); renderBonusLocs(); renderUnlockSettings();
+  document.getElementById('stat-locs').textContent = allMissions.filter(m=>!m.isBonus).length;
+  toast('Locatie opgeslagen ✓','ok');
+}
+
+async function deleteLocation(id){
+  if(!confirm('Weet je zeker dat je deze locatie wilt verwijderen?')) return;
+  await remove(ref(db,`config/missions/${id}`));
+  allMissions = allMissions.filter(m=>m.id!==id);
+  renderLocations(); renderBonusLocs(); renderUnlockSettings();
+  toast('Locatie verwijderd','ok');
+}
+
+// ── Settings opslaan ──
+async function saveSettings(){
+  const s = {
+    gameDuration: parseInt(document.getElementById('set-duration').value),
+    gpsRadius:    parseInt(document.getElementById('set-radius').value),
+    penaltyPct:   parseInt(document.getElementById('set-penalty').value),
+    teamDelaySec: parseInt(document.getElementById('set-delay').value),
+    pointDeduct:  parseInt(document.getElementById('set-deduct').value),
+    failBonus:    parseInt(document.getElementById('set-failbonus').value),
+    bonusFirstMin:     parseInt(document.getElementById('bonus-first').value),
+    bonusIntervalMin:  parseInt(document.getElementById('bonus-interval').value),
+  };
+  await set(ref(db,'config/settings'), s);
+  allSettings = s;
+  toast('Instellingen opgeslagen ✓','ok');
+}
+
+async function saveUnlocks(){
+  const updates = {};
+  allMissions.filter(m=>!m.isBonus && m.unlockAfter>0).forEach(m=>{
+    const el = document.getElementById('unlock-'+m.id);
+    if(el){ const val = parseInt(el.value)||0; updates[`config/missions/${m.id}/unlockAfter`]=val; m.unlockAfter=val; }
+  });
+  await update(ref(db), updates);
+  toast('Unlock tijden opgeslagen ✓','ok');
+}
+
+async function saveBonusSettings(){
+  const s = {...allSettings,
+    bonusFirstMin: parseInt(document.getElementById('bonus-first').value),
+    bonusIntervalMin: parseInt(document.getElementById('bonus-interval').value)
+  };
+  await set(ref(db,'config/settings'), s);
+  allSettings = s;
+  toast('Bonus instellingen opgeslagen ✓','ok');
+}
+
+// ── Manual bonus ──
+async function manualBonus(){
+  const code = document.getElementById('manual-game-code').value.trim().toUpperCase();
+  const bonusId = document.getElementById('manual-bonus-select').value;
+  if(!code){ toast('Vul een gamecode in','err'); return; }
+  const snap = await get(ref(db,`games/${code}`));
+  if(!snap.exists()){ toast('Game niet gevonden','err'); return; }
+  await update(ref(db,`games/${code}/activeBonuses`),{[bonusId]:Date.now()});
+  toast(`Bonus geactiveerd in ${code} ✓`,'ok');
+}
+
+// ── Games beheer ──
+async function cleanupOldGames(){
+  const snap = await get(ref(db,'games'));
+  if(!snap.exists()) return;
+  const cutoff = Date.now() - 86400000;
+  const toDelete = Object.entries(snap.val()).filter(([,g])=>(g.createdAt||0)<cutoff);
+  if(!toDelete.length){ toast('Geen oude games gevonden','ok'); return; }
+  for(const [code] of toDelete) await remove(ref(db,`games/${code}`));
+  toast(`${toDelete.length} game(s) verwijderd ✓`,'ok');
+  renderGamesTable();
+}
+
+async function deleteGame(code){
+  if(!confirm(`Game ${code} verwijderen?`)) return;
+  await remove(ref(db,`games/${code}`));
+  toast(`Game ${code} verwijderd`,'ok');
+  renderGamesTable();
+}
+
+// ── Game detail ──
+async function openGameDetail(code){
+  currentDetailGame = code;
+  document.getElementById('detail-title').textContent = code;
+  document.getElementById('game-detail').classList.add('open');
+  const snap = await get(ref(db,`games/${code}`));
+  if(!snap.exists()){ toast('Game niet gevonden','err'); return; }
+  const g = snap.val();
+  const teams = g.teams ? Object.values(g.teams).sort((a,b)=>b.score-a.score) : [];
+  const elapsed = g.startedAt ? Math.floor((Date.now()-g.startedAt)/60000) : 0;
+
+  document.getElementById('detail-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-num text-mint">${teams.length}</div><div class="stat-lbl">Teams</div></div>
+    <div class="stat-card"><div class="stat-num text-orange">${elapsed}'</div><div class="stat-lbl">Elapsed</div></div>
+    <div class="stat-card"><div class="stat-num">${g.status==='started'?'<span class="text-mint">Live</span>':g.status}</div><div class="stat-lbl">Status</div></div>`;
+
+  document.getElementById('detail-teams').innerHTML = teams.map((t,i)=>`
+    <div class="flex-row between" style="padding:.6rem 0;border-bottom:1px solid var(--border);">
+      <div><span style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--text);margin-right:.5rem;">${i+1}</span>${t.name}</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:var(--mint);">${t.score||0} pts</div>
+    </div>`).join('');
+
+  const results = g.missionResults||{};
+  const mDone = Object.entries(results);
+  document.getElementById('detail-missions').innerHTML = mDone.length
+    ? mDone.map(([mId,teamResults])=>{
+        const m = allMissions.find(x=>x.id===mId);
+        return `<div style="padding:.5rem 0;border-bottom:1px solid var(--border);">
+          <div style="font-size:.82rem;font-weight:500;margin-bottom:.3rem;">${m?m.icon+' '+m.name:mId}</div>
+          <div style="display:flex;gap:.4rem;flex-wrap:wrap;">
+            ${Object.entries(teamResults).map(([team,r])=>`<span class="badge ${r.result==='success'?'green':'red'}">${team}: ${r.result==='success'?'+'+r.points:'−'+r.penalty}</span>`).join('')}
+          </div>
+        </div>`;
+      }).join('')
+    : '<div class="empty">Nog geen opdrachten voltooid</div>';
+}
+
+function closeGameDetail(){ document.getElementById('game-detail').classList.remove('open'); }
+
+async function forceEndGame(){
+  if(!currentDetailGame||!confirm('Game stoppen?')) return;
+  await update(ref(db,`games/${currentDetailGame}`),{status:'ended',endedAt:Date.now()});
+  toast('Game gestopt','ok');
+  closeGameDetail();
+}
+
+// ── Helpers ──
+function timeSince(ts){
+  if(!ts) return 'onbekend';
+  const s = Math.floor((Date.now()-ts)/1000);
+  if(s<60) return s+'s geleden';
+  if(s<3600) return Math.floor(s/60)+'min geleden';
+  if(s<86400) return Math.floor(s/3600)+'u geleden';
+  return Math.floor(s/86400)+'d geleden';
+}
+
+function toast(msg, type='ok'){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast show ${type}`;
+  setTimeout(()=>el.classList.remove('show'),3000);
+}
+</script>
+</body>
+</html>
