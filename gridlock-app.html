@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Gridlock</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --mint: #3DFFA0;
+    --black: #080808;
+    --dark: #111;
+    --card: #1a1a1a;
+    --border: #2a2a2a;
+    --text: #aaa;
+    --white: #f0f0f0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--black);
+    color: var(--white);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3rem;
+    color: var(--mint);
+    letter-spacing: 0.05em;
+    text-align: center;
+    line-height: 1;
+  }
+  .logo-sub {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.35em;
+    color: rgba(61,255,160,0.5);
+    text-transform: uppercase;
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+
+  .screen { width: 100%; max-width: 380px; display: none; }
+  .screen.active { display: flex; flex-direction: column; gap: 1rem; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 1.5rem;
+    border-radius: 2px;
+  }
+
+  .card-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--mint);
+    margin-bottom: 1rem;
+  }
+
+  input {
+    width: 100%;
+    background: var(--black);
+    border: 1px solid var(--border);
+    color: var(--white);
+    padding: 0.85rem 1rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.9rem;
+    letter-spacing: 0.05em;
+    outline: none;
+    transition: border-color 0.2s;
+    border-radius: 2px;
+    margin-bottom: 0.75rem;
+  }
+  input:focus { border-color: var(--mint); }
+  input::placeholder { color: #444; }
+
+  button {
+    width: 100%;
+    padding: 0.9rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    border-radius: 2px;
+  }
+  button:active { transform: scale(0.98); }
+
+  .btn-primary {
+    background: var(--mint);
+    color: var(--black);
+  }
+  .btn-primary:hover { box-shadow: 0 4px 20px rgba(61,255,160,0.3); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--white);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { border-color: var(--mint); color: var(--mint); }
+
+  .btn-danger {
+    background: transparent;
+    color: #ff6b6b;
+    border: 1px solid #ff6b6b33;
+    margin-top: 0.5rem;
+  }
+
+  .divider {
+    display: flex; align-items: center; gap: 1rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem; color: #444;
+    letter-spacing: 0.1em;
+    margin: 0.25rem 0;
+  }
+  .divider::before, .divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  /* LOBBY */
+  .game-code-display {
+    text-align: center;
+    padding: 1.5rem;
+    border: 1px solid var(--border);
+    background: var(--black);
+    margin-bottom: 1rem;
+  }
+  .game-code-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem; letter-spacing: 0.2em;
+    color: var(--text); text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .game-code {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3.5rem; color: var(--mint);
+    letter-spacing: 0.15em; line-height: 1;
+  }
+  .game-code-hint {
+    font-size: 0.75rem; color: var(--text);
+    margin-top: 0.5rem; font-weight: 300;
+  }
+
+  .teams-list {
+    display: flex; flex-direction: column; gap: 0.5rem;
+    margin-bottom: 1rem;
+    min-height: 80px;
+  }
+  .team-item {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--black);
+    border: 1px solid var(--border);
+    animation: slideIn 0.3s ease forwards;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .team-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--mint);
+    box-shadow: 0 0 8px var(--mint);
+    flex-shrink: 0;
+  }
+  .team-dot.waiting { background: #444; box-shadow: none; }
+  .team-name {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem; color: var(--white);
+    flex: 1;
+  }
+  .team-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem; letter-spacing: 0.1em;
+    padding: 2px 8px; text-transform: uppercase;
+  }
+  .team-badge.host {
+    background: rgba(61,255,160,0.15);
+    color: var(--mint);
+  }
+  .team-badge.joined {
+    background: rgba(255,255,255,0.05);
+    color: var(--text);
+  }
+
+  .waiting-indicator {
+    text-align: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem; color: #444;
+    letter-spacing: 0.1em; padding: 1rem 0;
+  }
+  .waiting-dots::after {
+    content: '';
+    animation: dots 1.5s steps(4, end) infinite;
+  }
+  @keyframes dots {
+    0%,100% { content: ''; }
+    25% { content: '.'; }
+    50% { content: '..'; }
+    75% { content: '...'; }
+  }
+
+  .teams-count {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem; color: var(--text);
+    letter-spacing: 0.1em; text-align: center;
+    margin-bottom: 0.75rem;
+  }
+  .teams-count span { color: var(--mint); }
+
+  /* IN GAME */
+  .game-header {
+    text-align: center; margin-bottom: 0.5rem;
+  }
+  .game-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem; color: var(--white);
+    letter-spacing: 0.05em;
+  }
+  .game-subtitle {
+    font-size: 0.85rem; color: var(--text); font-weight: 300;
+  }
+
+  .scoreboard {
+    display: flex; flex-direction: column; gap: 0.4rem;
+  }
+  .score-row {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--black);
+    border: 1px solid var(--border);
+    transition: border-color 0.3s;
+  }
+  .score-row.me { border-color: rgba(61,255,160,0.3); }
+  .score-rank {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem; color: var(--text); width: 24px;
+  }
+  .score-rank.first { color: var(--mint); }
+  .score-name {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem; flex: 1;
+  }
+  .score-me-tag {
+    font-size: 0.55rem; color: var(--mint);
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.1em;
+  }
+  .score-pts {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem; color: var(--mint);
+  }
+
+  .status-bar {
+    display: flex; justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: rgba(61,255,160,0.05);
+    border: 1px solid rgba(61,255,160,0.15);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem; color: var(--mint);
+    letter-spacing: 0.08em;
+  }
+
+  .error-msg {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem; color: #ff6b6b;
+    text-align: center; padding: 0.5rem;
+    display: none;
+  }
+  .error-msg.show { display: block; }
+
+  /* Loading */
+  .loading {
+    text-align: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem; color: var(--mint);
+    letter-spacing: 0.15em;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+</style>
+</head>
+<body>
+
+<div class="logo">Gridlock</div>
+<div class="logo-sub">dé city battle</div>
+
+<!-- SCHERM 1: START -->
+<div class="screen active" id="screen-start">
+  <div class="card">
+    <div class="card-title">Nieuwe game starten</div>
+    <input type="text" id="host-team-name" placeholder="Jouw teamnaam" maxlength="20">
+    <button class="btn-primary" onclick="hostGame()">Game aanmaken →</button>
+  </div>
+
+  <div class="divider">of</div>
+
+  <div class="card">
+    <div class="card-title">Joinen met code</div>
+    <input type="text" id="join-team-name" placeholder="Jouw teamnaam" maxlength="20">
+    <input type="text" id="join-code" placeholder="Game-code (bijv. GRD-4829)" maxlength="10" style="text-transform:uppercase; letter-spacing:0.2em;">
+    <button class="btn-ghost" onclick="joinGame()">Joinen →</button>
+  </div>
+
+  <div class="error-msg" id="start-error"></div>
+</div>
+
+<!-- SCHERM 2: LOBBY (HOST) -->
+<div class="screen" id="screen-lobby-host">
+  <div class="game-code-display">
+    <div class="game-code-label">Game-code — deel dit met je teams</div>
+    <div class="game-code" id="display-code">---</div>
+    <div class="game-code-hint">Iedereen gaat naar playgridlock.nl en vult deze code in</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Teams in de lobby</div>
+    <div class="teams-count">
+      <span id="team-count">1</span> / 6 teams ingecheckt
+    </div>
+    <div class="teams-list" id="host-teams-list"></div>
+    <div class="waiting-indicator">Wachten op teams<span class="waiting-dots"></span></div>
+  </div>
+
+  <button class="btn-primary" id="start-btn" onclick="startGame()">Start de battle →</button>
+  <button class="btn-danger" onclick="leaveGame()">← Verlaat lobby</button>
+</div>
+
+<!-- SCHERM 2: LOBBY (JOINER) -->
+<div class="screen" id="screen-lobby-join">
+  <div class="card">
+    <div class="card-title">Ingecheckt ✓</div>
+    <div class="game-code-display" style="margin-bottom:0;">
+      <div class="game-code-label">Game-code</div>
+      <div class="game-code" id="display-code-join">---</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Teams in de lobby</div>
+    <div class="teams-count">
+      <span id="team-count-join">1</span> / 6 teams ingecheckt
+    </div>
+    <div class="teams-list" id="join-teams-list"></div>
+    <div class="waiting-indicator">Wachten tot de host de game start<span class="waiting-dots"></span></div>
+  </div>
+
+  <button class="btn-danger" onclick="leaveGame()">← Verlaat lobby</button>
+</div>
+
+<!-- SCHERM 3: IN HET SPEL -->
+<div class="screen" id="screen-game">
+  <div class="game-header">
+    <div class="game-title">Battle loopt!</div>
+    <div class="game-subtitle">Zoek de opdrachten op de kaart</div>
+  </div>
+
+  <div class="status-bar">
+    <span>● LIVE</span>
+    <span id="game-code-display">---</span>
+    <span id="game-timer">00:00</span>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Scorebord</div>
+    <div class="scoreboard" id="scoreboard"></div>
+  </div>
+
+  <div class="card" style="text-align:center;">
+    <div class="card-title">Jouw team</div>
+    <div style="font-family:'Bebas Neue',sans-serif; font-size:1.8rem; color:var(--mint); margin-bottom:0.5rem;" id="my-team-display">---</div>
+    <div style="font-size:0.85rem; color:var(--text); font-weight:300;">Opdrachten verschijnen op de kaart zodra je in de buurt bent</div>
+    <div style="font-family:'Space Mono',monospace; font-size:2rem; color:var(--white); margin-top:1rem;" id="my-score-display">0 pts</div>
+  </div>
+
+  <button class="btn-danger" onclick="leaveGame()">← Verlaat game</button>
+</div>
+
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getDatabase, ref, set, get, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDyITaoy4-Htv6Fqv-ssaNhLDbSMVRMuuY",
+    authDomain: "gridlock-cc123.firebaseapp.com",
+    databaseURL: "https://gridlock-cc123-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "gridlock-cc123",
+    storageBucket: "gridlock-cc123.firebasestorage.app",
+    messagingSenderId: "1074158392885",
+    appId: "1:1074158392885:web:767487b337cd00c5d1037c"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // State
+  let currentGame = null;
+  let currentTeam = null;
+  let isHost = false;
+  let gameTimer = null;
+  let gameStartTime = null;
+  let unsubscribe = null;
+
+  // Maak functies globaal beschikbaar
+  window.hostGame = hostGame;
+  window.joinGame = joinGame;
+  window.startGame = startGame;
+  window.leaveGame = leaveGame;
+
+  // Genereer game-code
+  function generateCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = 'GRD-';
+    for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    return code;
+  }
+
+  // Toon scherm
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  // Foutmelding
+  function showError(id, msg) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 3000);
+  }
+
+  // HOST: maak game aan
+  async function hostGame() {
+    const teamName = document.getElementById('host-team-name').value.trim();
+    if (!teamName) return showError('start-error', 'Vul een teamnaam in');
+
+    const code = generateCode();
+    currentGame = code;
+    currentTeam = teamName;
+    isHost = true;
+
+    await set(ref(db, `games/${code}`), {
+      status: 'waiting',
+      host: teamName,
+      createdAt: Date.now(),
+      teams: {
+        [teamName]: { name: teamName, score: 0, isHost: true, joinedAt: Date.now() }
+      }
+    });
+
+    document.getElementById('display-code').textContent = code;
+    showScreen('screen-lobby-host');
+    listenToGame(code);
+  }
+
+  // JOINER: join een game
+  async function joinGame() {
+    const teamName = document.getElementById('join-team-name').value.trim();
+    const code = document.getElementById('join-code').value.trim().toUpperCase();
+
+    if (!teamName) return showError('start-error', 'Vul een teamnaam in');
+    if (!code) return showError('start-error', 'Vul een game-code in');
+
+    const gameRef = ref(db, `games/${code}`);
+    const snapshot = await get(gameRef);
+
+    if (!snapshot.exists()) return showError('start-error', 'Game-code niet gevonden');
+
+    const gameData = snapshot.val();
+    if (gameData.status === 'started') return showError('start-error', 'Deze game is al gestart');
+    if (gameData.teams && gameData.teams[teamName]) return showError('start-error', 'Deze teamnaam is al bezet');
+    if (gameData.teams && Object.keys(gameData.teams).length >= 6) return showError('start-error', 'Lobby is vol (max 6 teams)');
+
+    currentGame = code;
+    currentTeam = teamName;
+    isHost = false;
+
+    await update(ref(db, `games/${code}/teams/${teamName}`), {
+      name: teamName, score: 0, isHost: false, joinedAt: Date.now()
+    });
+
+    document.getElementById('display-code-join').textContent = code;
+    showScreen('screen-lobby-join');
+    listenToGame(code);
+  }
+
+  // Luister naar game-updates in realtime
+  function listenToGame(code) {
+    if (unsubscribe) unsubscribe();
+
+    const gameRef = ref(db, `games/${code}`);
+    unsubscribe = onValue(gameRef, (snapshot) => {
+      if (!snapshot.exists()) {
+        leaveGame();
+        return;
+      }
+
+      const data = snapshot.val();
+      const teams = data.teams ? Object.values(data.teams) : [];
+      teams.sort((a, b) => a.joinedAt - b.joinedAt);
+
+      // Update team-lijsten in lobby
+      updateTeamsList('host-teams-list', teams);
+      updateTeamsList('join-teams-list', teams);
+
+      const count = teams.length;
+      document.getElementById('team-count').textContent = count;
+      document.getElementById('team-count-join').textContent = count;
+
+      // Start-knop: minimaal 2 teams
+      const startBtn = document.getElementById('start-btn');
+      if (count >= 2) {
+        startBtn.textContent = `Start de battle met ${count} teams →`;
+        startBtn.style.opacity = '1';
+      } else {
+        startBtn.textContent = 'Wacht op minimaal 2 teams...';
+        startBtn.style.opacity = '0.4';
+      }
+
+      // Als game gestart is → ga naar game scherm
+      if (data.status === 'started') {
+        gameStartTime = data.startedAt;
+        showGameScreen(teams, data);
+      }
+    });
+  }
+
+  // Render teams in lobby
+  function updateTeamsList(listId, teams) {
+    const list = document.getElementById(listId);
+    if (!list) return;
+    list.innerHTML = '';
+    teams.forEach(team => {
+      const div = document.createElement('div');
+      div.className = 'team-item';
+      div.innerHTML = `
+        <div class="team-dot"></div>
+        <div class="team-name">${team.name}</div>
+        <div class="team-badge ${team.isHost ? 'host' : 'joined'}">${team.isHost ? 'Host' : 'Ingecheckt'}</div>
+      `;
+      list.appendChild(div);
+    });
+  }
+
+  // HOST: start de game
+  async function startGame() {
+    const gameRef = ref(db, `games/${currentGame}`);
+    const snapshot = await get(gameRef);
+    if (!snapshot.exists()) return;
+
+    const teams = snapshot.val().teams;
+    if (!teams || Object.keys(teams).length < 2) return;
+
+    await update(gameRef, {
+      status: 'started',
+      startedAt: Date.now()
+    });
+  }
+
+  // Toon game scherm
+  function showGameScreen(teams, data) {
+    showScreen('screen-game');
+    document.getElementById('game-code-display').textContent = currentGame;
+    document.getElementById('my-team-display').textContent = currentTeam;
+
+    updateScoreboard(teams);
+    startGameTimer(data.startedAt);
+  }
+
+  // Update scorebord
+  function updateScoreboard(teams) {
+    const sorted = [...teams].sort((a, b) => b.score - a.score);
+    const board = document.getElementById('scoreboard');
+    board.innerHTML = '';
+
+    sorted.forEach((team, i) => {
+      const isMe = team.name === currentTeam;
+      const div = document.createElement('div');
+      div.className = `score-row ${isMe ? 'me' : ''}`;
+      div.innerHTML = `
+        <div class="score-rank ${i === 0 ? 'first' : ''}">${i + 1}</div>
+        <div class="score-name">
+          ${team.name}
+          ${isMe ? '<span class="score-me-tag"> ← jij</span>' : ''}
+        </div>
+        <div class="score-pts">${team.score} pts</div>
+      `;
+      board.appendChild(div);
+
+      if (isMe) {
+        document.getElementById('my-score-display').textContent = `${team.score} pts`;
+      }
+    });
+  }
+
+  // Timer
+  function startGameTimer(startedAt) {
+    if (gameTimer) clearInterval(gameTimer);
+    gameTimer = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      const min = String(Math.floor(elapsed / 60)).padStart(2, '0');
+      const sec = String(elapsed % 60).padStart(2, '0');
+      document.getElementById('game-timer').textContent = `${min}:${sec}`;
+    }, 1000);
+
+    // Ook live scorebord blijven updaten
+    const gameRef = ref(db, `games/${currentGame}`);
+    onValue(gameRef, (snapshot) => {
+      if (!snapshot.exists()) return;
+      const data = snapshot.val();
+      if (data.teams) {
+        const teams = Object.values(data.teams);
+        updateScoreboard(teams);
+      }
+    });
+  }
+
+  // Verlaat game
+  async function leaveGame() {
+    if (gameTimer) clearInterval(gameTimer);
+    if (unsubscribe) unsubscribe();
+
+    if (currentGame && currentTeam) {
+      if (isHost) {
+        // Host verlaat = game verwijderen
+        await remove(ref(db, `games/${currentGame}`));
+      } else {
+        await remove(ref(db, `games/${currentGame}/teams/${currentTeam}`));
+      }
+    }
+
+    currentGame = null;
+    currentTeam = null;
+    isHost = false;
+
+    document.getElementById('host-team-name').value = '';
+    document.getElementById('join-team-name').value = '';
+    document.getElementById('join-code').value = '';
+
+    showScreen('screen-start');
+  }
+</script>
+</body>
+</html>
